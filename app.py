@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
@@ -23,7 +25,19 @@ from scheduler import (
     schedule_to_live_demo,
 )
 
-app = Flask(__name__)
+
+def _resource_path(relative: str) -> str:
+    """Absolute path — works in dev and inside a PyInstaller bundle."""
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative)
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative)
+
+
+app = Flask(
+    __name__,
+    template_folder=_resource_path("templates"),
+    static_folder=_resource_path("static"),
+)
 
 
 def _parse_time(value: str) -> tuple[int, int, int]:
