@@ -178,32 +178,31 @@ function renderStatic(data) {
 
 function applyUrlParams() {
   const tz = urlParams.get("timezone");
-  const delay = urlParams.get("delay");
+  const finalDelay = urlParams.get("final_delay");
   const label = urlParams.get("label");
 
   if (tz && timezoneEl.querySelector(`option[value="${tz}"]`)) {
     timezoneEl.value = tz;
   }
 
-  // Show which plan is being demoed
   const ctxEl = document.getElementById("plan_context");
   if (ctxEl) {
     if (label) {
-      const delayLabel = delay
-        ? (+delay >= 60000
-          ? `${(+delay / 60000).toFixed(1)} min (${(+delay).toLocaleString()} ms)`
-          : `${(+delay / 1000).toFixed(1)} sec (${(+delay).toLocaleString()} ms)`)
+      const finalLabel = finalDelay
+        ? (+finalDelay >= 1000
+          ? `${(+finalDelay / 1000).toFixed(1)} sec (${(+finalDelay).toLocaleString()} ms)`
+          : `${finalDelay} ms`)
         : "";
       ctxEl.innerHTML =
-        `Testing plan: <strong>${label}</strong>` +
-        (delayLabel ? ` &nbsp;·&nbsp; Starting delay: <strong>${delayLabel}</strong>` : "");
+        `Testing: <strong>${label}</strong>` +
+        (finalLabel ? ` &nbsp;·&nbsp; Final drop delay: <strong>${finalLabel}</strong>` : "");
       ctxEl.hidden = false;
     } else {
       ctxEl.hidden = true;
     }
   }
 
-  return { tz, delay };
+  return { tz, finalDelay };
 }
 
 async function startDemo() {

@@ -15,6 +15,7 @@ from scheduler import (
     LIVE_DEMO_MINUTES,
     TIMEZONE_LABELS,
     TIMEZONES,
+    best_delay_for_demo,
     build_schedule,
     create_demo_target,
     get_timezone,
@@ -77,27 +78,40 @@ def demo_live_api():
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
 
+    # Accept optional final_delay hint from preset cards
     try:
-        initial_delay_ms = int(request.args.get("delay", LIVE_DEMO_INITIAL_DELAY_MS))
+        requested_final = int(request.args.get("final_delay", 0)) or None
     except (TypeError, ValueError):
-        initial_delay_ms = LIVE_DEMO_INITIAL_DELAY_MS
+        requested_final = None
+
+    # Auto-size the start delay to fit the 3-minute demo window,
+    # while trying to preserve the preset's final delay for authenticity.
+    demo_start_delay, demo_final_delay = best_delay_for_demo(
+        demo_minutes=LIVE_DEMO_MINUTES,
+        target_final_delay_ms=requested_final,
+    )
 
     tz = get_timezone(tz_key)
     now = datetime.now(tz).replace(microsecond=0)
     target = create_demo_target(minutes_from_now=LIVE_DEMO_MINUTES, now=now, tz_key=tz_key)
     start = now
 
-    schedule = build_schedule(
-        target=target,
-        start=start,
-        tz_key=tz_key,
-        initial_delay_ms=initial_delay_ms,
-    )
+    try:
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            tz_key=tz_key,
+            initial_delay_ms=demo_start_delay,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     return jsonify(
         {
             "mode": "live_demo",
             "demo_duration_minutes": LIVE_DEMO_MINUTES,
-            "initial_delay_ms": initial_delay_ms,
+            "initial_delay_ms": demo_start_delay,
+            "final_delay_ms": demo_final_delay,
             **schedule_to_live_demo(schedule),
         }
     )

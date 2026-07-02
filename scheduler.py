@@ -696,3 +696,46 @@ def fmt_refresh(dt: datetime, tz: ZoneInfo) -> str:
 # Live demo uses the same two-step logic (start delay + one final drop).
 LIVE_DEMO_MINUTES = 3.0
 LIVE_DEMO_INITIAL_DELAY_MS = 15_000
+
+# Candidate starting delays tried (largest-first) when auto-sizing for demo window.
+_DEMO_START_DELAY_CANDIDATES = [30_000, 20_000, 15_000, 10_000, 8_000, 5_000, 3_000, 2_000]
+
+
+def best_delay_for_demo(
+    *,
+    demo_minutes: float = LIVE_DEMO_MINUTES,
+    target_final_delay_ms: int | None = None,
+) -> tuple[int, int | None]:
+    """
+    Return (start_delay_ms, final_delay_ms) that fit cleanly inside the demo window.
+    Tries to honour target_final_delay_ms when supplied (e.g. from a preset card).
+    Falls back gracefully if no exact match exists.
+    """
+    from datetime import timezone as _tz
+
+    dummy_target = datetime(2000, 1, 1, 0, 0, 0, tzinfo=_tz.utc) + timedelta(minutes=demo_minutes)
+    dummy_start  = datetime(2000, 1, 1, 0, 0, 0, tzinfo=_tz.utc)
+
+    for start_delay in _DEMO_START_DELAY_CANDIDATES:
+        if target_final_delay_ms is not None:
+            steps = _find_two_step_with_final_delay(
+                target=dummy_target,
+                start=dummy_start,
+                initial_delay_ms=start_delay,
+                target_final_delay_ms=target_final_delay_ms,
+            )
+            if steps is not None:
+                return start_delay, target_final_delay_ms
+        else:
+            try:
+                steps = build_two_step_schedule(
+                    target=dummy_target,
+                    start=dummy_start,
+                    initial_delay_ms=start_delay,
+                )
+                return start_delay, steps[1].delay_ms
+            except ValueError:
+                continue
+
+    # Last resort — default values known to work
+    return LIVE_DEMO_INITIAL_DELAY_MS, 5_000

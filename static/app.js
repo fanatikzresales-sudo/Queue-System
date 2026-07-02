@@ -104,7 +104,7 @@ function renderPresets(data) {
       const p = data.plans[idx];
       const params = new URLSearchParams({
         timezone: timezoneEl.value,
-        delay: String(p.start_delay_ms),
+        final_delay: String(p.final_delay_ms),   // pass final drop delay for authenticity
         label: p.label,
       });
       window.open(`/demo-live?${params.toString()}`, "_blank");
