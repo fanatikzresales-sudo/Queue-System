@@ -8,6 +8,16 @@
 </head>
 <body>
   <div class="page">
+    <!-- Update banner — shown by JS if a newer version is available -->
+    <div id="update-banner" class="update-banner" hidden>
+      <span class="ub-text">
+        🔄 Update available: <strong id="ub-version"></strong>
+        — new features and fixes are ready
+      </span>
+      <a id="ub-link" href="#" target="_blank" class="ub-btn">Download Now →</a>
+      <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
+    </div>
+
     <header>
       <div class="badge">Walmart · Pokemon Queue</div>
       <h1>Queue Delay Optimizer</h1>
