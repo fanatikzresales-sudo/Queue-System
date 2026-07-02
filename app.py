@@ -189,12 +189,15 @@ def preset_schedules_api():
     tz_key = (request.args.get("timezone") or "CDT").upper()
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+    tz = get_timezone(tz_key)
     target = next_walmart_queue_time(tz_key=tz_key)
+    target_local = target.astimezone(tz)          # convert to display timezone
     plans = preset_schedules(target=target, tz_key=tz_key)
     return jsonify(
         {
-            "queue_live": target.strftime("%I:%M %p").lstrip("0")
-            + f" {target.tzname()} — Wednesday {target.strftime('%B %d')}",
+            "queue_live": target_local.strftime("%I:%M %p").lstrip("0")
+            + f" {target_local.tzname()} — Wednesday {target_local.strftime('%B %d, %Y')}",
+            "queue_ts_ms": int(target.timestamp() * 1000),  # for frontend auto-refresh
             "plans": [
                 {
                     "label": p.label,

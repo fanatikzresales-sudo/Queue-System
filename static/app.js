@@ -449,8 +449,20 @@ async function loadPresets() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed");
     renderPresets(data);
+    schedulePresetsRefresh(data.queue_ts_ms);
   } catch (err) {
     presetGridEl.innerHTML = `<p class="placeholder">${err.message}</p>`;
+  }
+}
+
+// Auto-refresh preset cards after queue goes live (new Wednesday loads automatically)
+let _presetsRefreshTimer = null;
+function schedulePresetsRefresh(queueTsMs) {
+  if (_presetsRefreshTimer) clearTimeout(_presetsRefreshTimer);
+  const msUntilLive = queueTsMs - Date.now();
+  if (msUntilLive > 0) {
+    // Reload 5 seconds after queue goes live — new Wednesday will be computed
+    _presetsRefreshTimer = setTimeout(() => loadPresets(), msUntilLive + 5000);
   }
 }
 
