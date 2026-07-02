@@ -40,8 +40,16 @@ function renderPresets(data) {
          data-delay="${p.start_delay_ms}">
 
       <div class="pc-head">
-        <span class="pc-label">${p.label}</span>
+        <div>
+          <div class="pc-label">${p.label}</div>
+          <div class="pc-desc">${p.description}</div>
+        </div>
         <span class="pc-badge ${p.verified ? "ok" : "warn"}">${p.verified ? "✓ Verified" : "Approx"}</span>
+      </div>
+
+      <div class="pc-tag-row">
+        <span class="pc-tag">Start ${p.start_window_label}</span>
+        <span class="pc-tag">Drop ${p.drop_minutes_label} before</span>
       </div>
 
       <div class="pc-flow">
@@ -56,16 +64,16 @@ function renderPresets(data) {
           </div>
         </div>
 
-        <div class="pc-arrow">↓ run until drop time</div>
+        <div class="pc-arrow">↓</div>
 
         <!-- Step 2 -->
         <div class="pc-step pc-drop">
           <div class="pc-step-num">2</div>
           <div class="pc-step-info">
-            <div class="pc-step-title">Drop delay once — ${p.drop_minutes_label} before</div>
+            <div class="pc-step-title">Drop once — ${p.drop_minutes_label} before queue</div>
             <div class="pc-time">${p.drop_time_display}</div>
             <div class="pc-delay-chip final">${p.final_delay_label}</div>
-            <div class="pc-sub">${p.refreshes_phase2} refreshes until queue live</div>
+            <div class="pc-sub">${p.refreshes_phase2} refreshes → queue live</div>
           </div>
         </div>
 

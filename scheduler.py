@@ -64,25 +64,37 @@ DEFAULT_SWITCH_MINUTES_CANDIDATES = [10, 8, 7, 6, 5, 4, 3, 2]
 # Preferred final-phase delays (ms) — picked for the single pre-queue drop.
 FINAL_DELAY_PREFERENCES = [5_000, 3_000, 2_000, 1_500, 1_000, 800, 500]
 
-# Preset start windows shown on the main page (minutes before queue, display label).
-PRESET_WINDOWS: list[tuple[float, str]] = [
-    (30, "30 min early"),
-    (45, "45 min early"),
-    (60, "1 hour early"),
-    (75, "1 hr 15 min early"),
-    (90, "1.5 hours early"),
-    (120, "2 hours early"),
+# Cards are organized by target final delay, each gets the best start window.
+# (final_delay_ms, label, description, preferred_start_windows_min)
+PRESET_BY_FINAL_DELAY: list[tuple[int, str, str, list[int]]] = [
+    (5_000,  "Drop to 5,000 ms",  "Most proxy-safe — low hit rate, ideal for long early starts", [120, 90, 60, 45]),
+    (3_000,  "Drop to 3,000 ms",  "Great balance — proxy-friendly, very reliable timing",        [90, 60, 45, 30]),
+    (2_000,  "Drop to 2,000 ms",  "Solid choice — strong refresh rate near queue time",          [60, 45, 30]),
+    (1_500,  "Drop to 1,500 ms",  "High precision — tight refresh, popular for Pokemon drops",   [60, 45, 30]),
+    (1_000,  "Drop to 1,000 ms",  "Ultra-precise — maximum accuracy at queue go-live",           [45, 30, 60]),
 ]
 
-# Preferred starting delays to try for each preset, largest first.
+# All start windows to search (minutes before queue, label).
+ALL_START_WINDOWS: list[tuple[int, str]] = [
+    (120, "2 hours early"),
+    (90,  "1.5 hours early"),
+    (75,  "1 hr 15 min early"),
+    (60,  "1 hour early"),
+    (45,  "45 min early"),
+    (30,  "30 min early"),
+]
+
+# Preferred starting delays to try per preset, largest first.
 PRESET_START_DELAY_PREFERENCES = [120_000, 90_000, 60_000, 45_000, 30_000, 20_000, 15_000, 10_000, 5_000]
 
 
 @dataclass(frozen=True)
 class PresetPlan:
-    """A fully resolved 2-step plan for a common start window."""
+    """A fully resolved 2-step plan organized by target final delay."""
     label: str
+    description: str
     minutes_early: float
+    start_window_label: str
     start_delay_ms: int
     drop_minutes_before: float
     final_delay_ms: int
@@ -452,7 +464,13 @@ def preset_schedules(
     target: datetime,
     tz_key: str = "CDT",
 ) -> list[PresetPlan]:
-    """Compute best 2-step plan for each common start window."""
+    """
+    Compute the best 2-step plan for each target final delay.
+    For each desired final drop delay, searches across start windows and
+    starting delays to find the plan with:
+      1. Latest possible switch (drop as late as possible)
+      2. Largest safe starting delay (most proxy-friendly)
+    """
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     plans: list[PresetPlan] = []
@@ -461,36 +479,51 @@ def preset_schedules(
         local = dt.astimezone(tz)
         return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
 
-    for window_min, label in PRESET_WINDOWS:
-        start = target - timedelta(minutes=window_min)
-        best_steps: list[DelayStep] | None = None
-        best_start_delay = 0
+    for final_delay_ms, label, description, preferred_windows in PRESET_BY_FINAL_DELAY:
+        # Build a prioritised list of start windows: preferred ones first, rest after.
+        window_order = list(dict.fromkeys(
+            preferred_windows + [w for w, _ in ALL_START_WINDOWS]
+        ))
+        window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
 
-        for start_delay in PRESET_START_DELAY_PREFERENCES:
-            if start_delay >= window_min * 60 * 1000:
-                # Starting delay larger than the whole window — skip
-                continue
-            try:
-                steps = build_two_step_schedule(
-                    target=target,
-                    start=start,
-                    initial_delay_ms=start_delay,
-                )
-                if best_steps is None or start_delay > best_start_delay:
+        best_steps: list[DelayStep] | None = None
+        best_window: int = 0
+        best_start_delay: int = 0
+
+        for window_min in window_order:
+            start = target - timedelta(minutes=window_min)
+            for start_delay in PRESET_START_DELAY_PREFERENCES:
+                if start_delay >= window_min * 60 * 1000:
+                    continue
+                # Only accept plans that land on our target final delay.
+                try:
+                    steps = _find_two_step_with_final_delay(
+                        target=target,
+                        start=start,
+                        initial_delay_ms=start_delay,
+                        target_final_delay_ms=final_delay_ms,
+                    )
+                except ValueError:
+                    continue
+                if steps is not None:
                     best_steps = steps
+                    best_window = window_min
                     best_start_delay = start_delay
-                    break  # first (largest) working delay wins
-            except ValueError:
-                continue
+                    break
+            if best_steps is not None:
+                break
 
         if best_steps is None or len(best_steps) < 2:
             continue
 
         s1, s2 = best_steps[0], best_steps[1]
+        window_label = window_labels.get(best_window, f"{best_window} min early")
         plans.append(
             PresetPlan(
                 label=label,
-                minutes_early=window_min,
+                description=description,
+                minutes_early=best_window,
+                start_window_label=window_label,
                 start_delay_ms=s1.delay_ms,
                 drop_minutes_before=s2.minutes_before,
                 final_delay_ms=s2.delay_ms,
@@ -509,6 +542,63 @@ def preset_schedules(
             )
         )
     return plans
+
+
+def _find_two_step_with_final_delay(
+    *,
+    target: datetime,
+    start: datetime,
+    initial_delay_ms: int,
+    target_final_delay_ms: int,
+    min_delay_ms: int = 250,
+) -> list[DelayStep] | None:
+    """
+    Build a two-step schedule where the second step uses exactly target_final_delay_ms.
+    Searches switch windows from latest (10 min) to earliest (2 min).
+    Returns None if no exact alignment is found.
+    """
+    for switch_min in DEFAULT_SWITCH_MINUTES_CANDIDATES:
+        ideal_switch = target - timedelta(minutes=switch_min)
+        if ideal_switch <= start:
+            continue
+        switch_at = _snap_switch_to_start_grid(start, ideal_switch, initial_delay_ms)
+        if switch_at is None or switch_at >= target:
+            continue
+
+        phase1_ms = int((switch_at - start).total_seconds() * 1000)
+        phase2_ms = int((target - switch_at).total_seconds() * 1000)
+
+        if phase2_ms < target_final_delay_ms:
+            continue
+        if phase2_ms % target_final_delay_ms != 0:
+            continue
+        if phase1_ms % initial_delay_ms != 0:
+            continue
+
+        refreshes_phase2 = phase2_ms // target_final_delay_ms
+        refreshes_phase1 = phase1_ms // initial_delay_ms
+        start_minutes_before = (target - start).total_seconds() / 60
+        switch_minutes_before = phase2_ms / 60_000
+
+        return [
+            DelayStep(
+                at=start,
+                minutes_before=start_minutes_before,
+                delay_ms=initial_delay_ms,
+                refreshes_until_next=refreshes_phase1,
+                segment_ms=phase1_ms,
+                aligned=True,
+            ),
+            DelayStep(
+                at=switch_at,
+                minutes_before=switch_minutes_before,
+                delay_ms=target_final_delay_ms,
+                refreshes_until_next=refreshes_phase2,
+                segment_ms=phase2_ms,
+                aligned=True,
+            ),
+        ]
+    return None
 
 
 def schedule_to_dict(schedule: Schedule) -> dict:

@@ -204,6 +204,29 @@ select {
 .pc-label {
   font-weight: 700;
   font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.pc-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.pc-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.pc-tag {
+  background: #0f1419;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.2rem 0.55rem;
 }
 
 .pc-badge {

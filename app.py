@@ -114,7 +114,9 @@ def preset_schedules_api():
             "plans": [
                 {
                     "label": p.label,
+                    "description": p.description,
                     "minutes_early": p.minutes_early,
+                    "start_window_label": p.start_window_label,
                     "start_delay_ms": p.start_delay_ms,
                     "start_delay_label": p.start_delay_label,
                     "start_time_display": p.start_time_display,
