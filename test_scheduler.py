@@ -41,8 +41,24 @@ class TestNextQueueTime(unittest.TestCase):
         est = get_timezone("EST")
         now = datetime(2026, 7, 2, 12, 0, tzinfo=est)
         target = next_walmart_queue_time(now=now, tz_key="EST")
-        self.assertEqual(target.tzinfo, est)
-        self.assertEqual(target.hour, 20)
+        # Target is always in Central Time (8 PM CDT = 9 PM EDT)
+        self.assertEqual(target.weekday(), 2)  # Wednesday
+        # Same absolute moment as CDT
+        target_cdt = next_walmart_queue_time(now=now.astimezone(CENTRAL), tz_key="CDT")
+        self.assertEqual(
+            target.astimezone(ZoneInfo("UTC")),
+            target_cdt.astimezone(ZoneInfo("UTC")),
+        )
+
+    def test_all_timezones_same_utc_moment(self):
+        """All timezones must resolve to the same real-world queue time."""
+        from zoneinfo import ZoneInfo as Z
+        now_central = datetime(2026, 7, 2, 12, 0, tzinfo=CENTRAL)
+        targets = {tz: next_walmart_queue_time(now=now_central, tz_key=tz)
+                   for tz in ["CDT", "EST", "PT"]}
+        utc_times = {tz: t.astimezone(Z("UTC")) for tz, t in targets.items()}
+        self.assertEqual(utc_times["CDT"], utc_times["EST"])
+        self.assertEqual(utc_times["CDT"], utc_times["PT"])
 
 
 class TestSchedule(unittest.TestCase):

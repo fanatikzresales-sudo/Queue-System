@@ -56,14 +56,16 @@ def _parse_time(value: str) -> tuple[int, int, int]:
 def _resolve_start(start_time: str, target, tz_key: str, demo: bool = False):
     tz = get_timezone(tz_key)
     hour, minute, second = _parse_time(start_time)
-    start = target.replace(hour=hour, minute=minute, second=second, microsecond=0)
-    if start >= target:
+    # User enters a time in their local timezone, so build start in that tz
+    target_local = target.astimezone(tz)
+    start = target_local.replace(hour=hour, minute=minute, second=second, microsecond=0)
+    if start >= target_local:
         if demo:
             start = datetime.now(tz).replace(microsecond=0)
-            if start >= target:
-                start = target - timedelta(minutes=3)
+            if start >= target_local:
+                start = target_local - timedelta(minutes=3)
         else:
-            raise ValueError("Start time must be before queue go-live (8:00 PM).")
+            raise ValueError("Start time must be before queue go-live.")
     return start
 
 

@@ -164,12 +164,24 @@ def next_walmart_queue_time(
     minute: int = DEFAULT_QUEUE_MINUTE,
     second: int = DEFAULT_QUEUE_SECOND,
 ) -> datetime:
-    """Return the next Wednesday queue go-live in the selected timezone."""
+    """
+    Return the next Wednesday Walmart queue go-live.
+
+    The event ALWAYS fires at `hour` o'clock **Central Time** (Walmart's timezone),
+    regardless of `tz_key`.  The returned datetime is in Central Time so that
+    arithmetic is consistent; display code converts to the user's tz.
+    """
+    central = TIMEZONES["CDT"]  # America/Chicago — the authoritative timezone
     tz = get_timezone(tz_key)
-    now = _ensure_tz(now or datetime.now(tz), tz)
-    candidate = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
-    days_ahead = (2 - candidate.weekday()) % 7
-    if days_ahead == 0 and candidate <= now:
+
+    # Anchor "now" in Central so weekday and hour comparisons are correct.
+    now_central = _ensure_tz(now or datetime.now(tz), central)
+
+    candidate = now_central.replace(
+        hour=hour, minute=minute, second=second, microsecond=0
+    )
+    days_ahead = (2 - candidate.weekday()) % 7   # Wednesday = 2
+    if days_ahead == 0 and candidate <= now_central:
         days_ahead = 7
     return candidate + timedelta(days=days_ahead)
 
