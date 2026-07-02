@@ -63,6 +63,11 @@ def demo_live_api():
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
 
+    try:
+        initial_delay_ms = int(request.args.get("delay", LIVE_DEMO_INITIAL_DELAY_MS))
+    except (TypeError, ValueError):
+        initial_delay_ms = LIVE_DEMO_INITIAL_DELAY_MS
+
     tz = get_timezone(tz_key)
     now = datetime.now(tz).replace(microsecond=0)
     target = create_demo_target(minutes_from_now=LIVE_DEMO_MINUTES, now=now, tz_key=tz_key)
@@ -72,13 +77,14 @@ def demo_live_api():
         target=target,
         start=start,
         tz_key=tz_key,
-        initial_delay_ms=LIVE_DEMO_INITIAL_DELAY_MS,
+        initial_delay_ms=initial_delay_ms,
         milestones_min=LIVE_DEMO_MILESTONES,
     )
     return jsonify(
         {
             "mode": "live_demo",
             "demo_duration_minutes": LIVE_DEMO_MINUTES,
+            "initial_delay_ms": initial_delay_ms,
             **schedule_to_live_demo(schedule),
         }
     )

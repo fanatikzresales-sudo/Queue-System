@@ -116,6 +116,15 @@ async function fetchStarters() {
 }
 
 async function optimize() {
+  if (demoModeEl.checked) {
+    const params = new URLSearchParams({
+      timezone: timezoneEl.value,
+      delay: String(parseInt(initialDelayEl.value, 10) || 60000),
+    });
+    window.location.href = `/demo-live?${params.toString()}`;
+    return;
+  }
+
   optimizeBtn.disabled = true;
   optimizeBtn.textContent = "Optimizing…";
   try {
@@ -151,8 +160,10 @@ demoModeEl.addEventListener("change", () => {
     const mm = String(now.getMinutes()).padStart(2, "0");
     const ss = String(now.getSeconds()).padStart(2, "0");
     startTimeEl.value = `${hh}:${mm}:${ss}`;
+    optimizeBtn.textContent = "Launch Live Demo";
   } else {
     startTimeEl.value = "19:00";
+    optimizeBtn.textContent = "Queue Optimize";
   }
   fetchStarters();
 });

@@ -1,233 +1,241 @@
-.live-page header {
-  margin-bottom: 1.25rem;
+const timezoneEl = document.getElementById("timezone");
+const restartBtn = document.getElementById("restart_btn");
+const countdownEl = document.getElementById("countdown");
+const queueTimeEl = document.getElementById("queue_time");
+const progressBarEl = document.getElementById("progress_bar");
+const statusLineEl = document.getElementById("status_line");
+const currentDelayEl = document.getElementById("current_delay");
+const nextRefreshInEl = document.getElementById("next_refresh_in");
+const refreshCountEl = document.getElementById("refresh_count");
+const verificationEl = document.getElementById("verification");
+const eventFeedEl = document.getElementById("event_feed");
+const dropTableBody = document.querySelector("#drop_table tbody");
+const refreshTimelineEl = document.getElementById("refresh_timeline");
+
+const urlParams = new URLSearchParams(window.location.search);
+
+let demo = null;
+let tickTimer = null;
+let clockOffset = 0;
+let firedRefreshIdx = new Set();
+let firedDropIdx = new Set();
+let refreshTotal = 0;
+
+function nowTs() {
+  return Date.now() + clockOffset;
 }
 
-.live-badge {
-  background: var(--success);
-  animation: pulse 2s ease-in-out infinite;
+function formatMs(ms) {
+  if (ms >= 60000) return `${(ms / 60000).toFixed(1)} min (${ms.toLocaleString()} ms)`;
+  if (ms >= 1000) return `${(ms / 1000).toFixed(1)} sec (${ms.toLocaleString()} ms)`;
+  return `${ms} ms`;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
+function formatCountdown(ms) {
+  if (ms <= 0) return "00:00";
+  const totalSec = Math.ceil(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
-.live-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: flex-end;
-  margin-bottom: 1.25rem;
+function formatClockFromTs(ts) {
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
 }
 
-.live-controls .field {
-  margin: 0;
-  min-width: 220px;
+function addEvent(type, message, ts) {
+  const el = document.createElement("div");
+  el.className = `event ${type}`;
+  el.innerHTML = `<time>${formatClockFromTs(ts)}</time>${message}`;
+  eventFeedEl.prepend(el);
+  const placeholder = eventFeedEl.querySelector(".placeholder");
+  if (placeholder) placeholder.remove();
 }
 
-.live-controls button {
-  width: auto;
-  min-width: 180px;
-  margin: 0;
+function getCurrentStep(atTs) {
+  if (!demo) return null;
+  let current = demo.drop_schedule[0];
+  for (const step of demo.drop_schedule) {
+    if (step.at_ts <= atTs) current = step;
+    else break;
+  }
+  return current;
 }
 
-.live-grid {
-  display: grid;
-  gap: 1.25rem;
-  margin-bottom: 1.25rem;
+function getNextRefreshTs(atTs) {
+  if (!demo) return null;
+  const upcoming = demo.all_refreshes.filter((r) => r.ts > atTs);
+  return upcoming.length ? upcoming[0].ts : null;
 }
 
-@media (min-width: 900px) {
-  .live-grid {
-    grid-template-columns: 1.2fr 1fr;
+function tick() {
+  if (!demo) return;
+  const ts = nowTs();
+
+  demo.drop_schedule.forEach((step, idx) => {
+    if (!firedDropIdx.has(idx) && ts >= step.at_ts) {
+      firedDropIdx.add(idx);
+      const row = dropTableBody.rows[idx];
+      if (row) {
+        row.classList.add("drop-done");
+        row.cells[2].textContent = idx === 0 ? "Started" : "Dropped";
+      }
+      if (idx === 0) {
+        addEvent("drop", `Bot started with delay <strong>${formatMs(step.delay_ms)}</strong>`, step.at_ts);
+      } else {
+        addEvent("drop", `Delay dropped to <strong>${formatMs(step.delay_ms)}</strong>`, step.at_ts);
+      }
+    }
+  });
+
+  demo.all_refreshes.forEach((refresh, idx) => {
+    if (!firedRefreshIdx.has(idx) && ts >= refresh.ts) {
+      firedRefreshIdx.add(idx);
+      refreshTotal += 1;
+      refreshCountEl.textContent = String(refreshTotal);
+
+      const li = refreshTimelineEl.children[idx];
+      if (li) li.classList.add("fired");
+
+      if (refresh.is_queue_live) {
+        li?.classList.add("queue-live");
+        addEvent("queue-live", "QUEUE LIVE — refresh fired exactly on time!", refresh.ts);
+        countdownEl.textContent = "LIVE!";
+        countdownEl.className = "countdown-value live-now";
+        statusLineEl.textContent = "Queue is live. Demo complete.";
+        verificationEl.textContent = demo.hits_target_exactly ? "Exact hit ✓" : "Missed ✗";
+        verificationEl.className = demo.hits_target_exactly ? "state-value ok" : "state-value bad";
+        clearInterval(tickTimer);
+      } else {
+        const step = getCurrentStep(refresh.ts);
+        addEvent(
+          "refresh",
+          `Page refreshed <span style="color:var(--muted)">(delay: ${formatMs(step?.delay_ms || 0)})</span>`,
+          refresh.ts
+        );
+      }
+    }
+  });
+
+  const remaining = demo.target_ts - ts;
+  const elapsed = ts - demo.start_ts;
+  const total = demo.target_ts - demo.start_ts;
+  const pct = total > 0 ? Math.min(100, Math.max(0, (elapsed / total) * 100)) : 100;
+  progressBarEl.style.width = `${pct}%`;
+
+  if (remaining > 0) {
+    countdownEl.textContent = formatCountdown(remaining);
+    countdownEl.className = remaining <= 30000 ? "countdown-value urgent" : "countdown-value";
+    statusLineEl.textContent = `Simulation running — ${Math.ceil(remaining / 1000)}s until queue goes live`;
+  }
+
+  const currentStep = getCurrentStep(ts);
+  if (currentStep) {
+    currentDelayEl.textContent = formatMs(currentStep.delay_ms);
+    const nextRefreshTs = getNextRefreshTs(ts);
+    if (nextRefreshTs && remaining > 0) {
+      nextRefreshInEl.textContent = `${Math.max(0, (nextRefreshTs - ts) / 1000).toFixed(1)}s`;
+    } else if (remaining <= 0) {
+      nextRefreshInEl.textContent = "—";
+    }
+  }
+
+  dropTableBody.querySelectorAll("tr").forEach((r) => r.classList.remove("drop-active"));
+  const nextDropIdx = demo.drop_schedule.findIndex((s, idx) => !firedDropIdx.has(idx) && s.at_ts > ts);
+  if (nextDropIdx >= 0 && remaining > 0) {
+    dropTableBody.rows[nextDropIdx]?.classList.add("drop-active");
   }
 }
 
-.live-countdown {
-  text-align: center;
-  padding: 2rem 1.5rem;
+function renderStatic(data) {
+  queueTimeEl.textContent = `Queue goes live at ${data.queue_live}`;
+  verificationEl.textContent = data.hits_target_exactly ? "Scheduled ✓" : "May miss";
+  verificationEl.className = data.hits_target_exactly ? "state-value ok" : "state-value bad";
+
+  dropTableBody.innerHTML = data.drop_schedule
+    .map(
+      (step) => `
+      <tr>
+        <td>${step.is_start ? "START NOW" : step.at}</td>
+        <td>${step.delay_label}</td>
+        <td>Pending</td>
+      </tr>`
+    )
+    .join("");
+
+  refreshTimelineEl.innerHTML = data.all_refreshes
+    .map(
+      (r) =>
+        `<li class="${r.is_queue_live ? "queue-live" : ""}">${r.time}${r.is_queue_live ? " ← LIVE" : ""}</li>`
+    )
+    .join("");
 }
 
-.countdown-label {
-  color: var(--muted);
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.75rem;
+function applyUrlParams() {
+  const tz = urlParams.get("timezone");
+  const delay = urlParams.get("delay");
+  if (tz && timezoneEl.querySelector(`option[value="${tz}"]`)) {
+    timezoneEl.value = tz;
+  }
+  return { tz, delay };
 }
 
-.countdown-value {
-  font-size: 4rem;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  margin-bottom: 0.5rem;
+async function startDemo() {
+  if (tickTimer) clearInterval(tickTimer);
+  firedRefreshIdx = new Set();
+  firedDropIdx = new Set();
+  refreshTotal = 0;
+  refreshCountEl.textContent = "0";
+  eventFeedEl.innerHTML = '<div class="event placeholder">Loading demo schedule…</div>';
+  countdownEl.textContent = "--:--";
+  countdownEl.className = "countdown-value";
+  progressBarEl.style.width = "0%";
+  statusLineEl.textContent = "Fetching schedule from server…";
+  currentDelayEl.textContent = "—";
+  nextRefreshInEl.textContent = "—";
+  verificationEl.textContent = "Waiting…";
+  verificationEl.className = "state-value pending";
+
+  const { delay } = applyUrlParams();
+  const params = new URLSearchParams({ timezone: timezoneEl.value });
+  if (delay) params.set("delay", delay);
+
+  try {
+    const res = await fetch(`/api/demo-live?${params.toString()}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load demo");
+
+    demo = data;
+    clockOffset = data.server_now_ts - Date.now();
+
+    renderStatic(data);
+
+    addEvent(
+      "drop",
+      `Live demo started — queue goes live in <strong>${data.demo_duration_minutes} minutes</strong>`,
+      nowTs()
+    );
+    addEvent(
+      "refresh",
+      `Starting delay: <strong>${formatMs(data.drop_schedule[0].delay_ms)}</strong> — watch refreshes fire below`,
+      nowTs()
+    );
+
+    tickTimer = setInterval(tick, 100);
+    tick();
+  } catch (err) {
+    eventFeedEl.innerHTML = `<div class="event placeholder">${err.message}</div>`;
+    statusLineEl.textContent = "Demo failed to start.";
+  }
 }
 
-.countdown-value.urgent {
-  color: var(--warning);
-}
+restartBtn.addEventListener("click", startDemo);
+timezoneEl.addEventListener("change", startDemo);
 
-.countdown-value.live-now {
-  color: var(--success);
-  font-size: 2.5rem;
-}
-
-.queue-time {
-  color: var(--muted);
-  font-size: 0.95rem;
-  margin-bottom: 1.25rem;
-}
-
-.progress-track {
-  height: 8px;
-  background: #0f1419;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 0.85rem;
-}
-
-.progress-bar {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--accent), var(--success));
-  border-radius: 999px;
-  transition: width 0.25s linear;
-}
-
-.status-line {
-  font-size: 0.95rem;
-  color: var(--muted);
-}
-
-.live-current h2 {
-  margin-top: 0;
-}
-
-.state-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
-}
-
-.state-item {
-  background: #0f1419;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.state-label {
-  font-size: 0.78rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.state-value {
-  font-size: 1.1rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.state-value.ok {
-  color: var(--success);
-}
-
-.state-value.bad {
-  color: var(--danger);
-}
-
-.state-value.pending {
-  color: var(--warning);
-}
-
-.event-feed {
-  max-height: 280px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.event {
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  border-left: 3px solid var(--panel-border);
-  background: #0f1419;
-  animation: slideIn 0.25s ease-out;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.event.refresh {
-  border-left-color: var(--accent);
-}
-
-.event.drop {
-  border-left-color: var(--warning);
-}
-
-.event.queue-live {
-  border-left-color: var(--success);
-  background: rgba(46, 204, 113, 0.1);
-  font-weight: 700;
-}
-
-.event.placeholder {
-  color: var(--muted);
-  border-left-color: transparent;
-}
-
-.event time {
-  color: var(--muted);
-  font-family: "Consolas", "Monaco", monospace;
-  margin-right: 0.5rem;
-}
-
-.refresh-timeline {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 0.5rem;
-}
-
-.refresh-timeline li {
-  padding: 0.5rem 0.65rem;
-  background: #0f1419;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  font-family: "Consolas", "Monaco", monospace;
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
-.refresh-timeline li.fired {
-  border-color: rgba(0, 113, 206, 0.5);
-  color: var(--text);
-}
-
-.refresh-timeline li.queue-live {
-  border-color: var(--success);
-  color: var(--success);
-  font-weight: 700;
-}
-
-tr.drop-done td {
-  color: var(--success);
-}
-
-tr.drop-active td {
-  color: var(--warning);
-  font-weight: 600;
-}
+applyUrlParams();
+startDemo();
