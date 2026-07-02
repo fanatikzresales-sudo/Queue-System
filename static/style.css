@@ -309,11 +309,31 @@ select {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
-  width: 100%;
+  flex: 1;
 }
 
 .pc-select-btn:hover { background: var(--accent-hover); }
 .preset-card.selected .pc-select-btn { background: var(--success); color: #0f1419; }
+
+.pc-demo-btn {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.pc-btn-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.pc-demo-btn:hover { border-color: var(--success); color: var(--success); }
 
 /* ── Custom section ── */
 .custom-section h2 { margin-bottom: 0.4rem; }

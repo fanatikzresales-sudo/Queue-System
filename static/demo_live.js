@@ -179,9 +179,30 @@ function renderStatic(data) {
 function applyUrlParams() {
   const tz = urlParams.get("timezone");
   const delay = urlParams.get("delay");
+  const label = urlParams.get("label");
+
   if (tz && timezoneEl.querySelector(`option[value="${tz}"]`)) {
     timezoneEl.value = tz;
   }
+
+  // Show which plan is being demoed
+  const ctxEl = document.getElementById("plan_context");
+  if (ctxEl) {
+    if (label) {
+      const delayLabel = delay
+        ? (+delay >= 60000
+          ? `${(+delay / 60000).toFixed(1)} min (${(+delay).toLocaleString()} ms)`
+          : `${(+delay / 1000).toFixed(1)} sec (${(+delay).toLocaleString()} ms)`)
+        : "";
+      ctxEl.innerHTML =
+        `Testing plan: <strong>${label}</strong>` +
+        (delayLabel ? ` &nbsp;·&nbsp; Starting delay: <strong>${delayLabel}</strong>` : "");
+      ctxEl.hidden = false;
+    } else {
+      ctxEl.hidden = true;
+    }
+  }
+
   return { tz, delay };
 }
 

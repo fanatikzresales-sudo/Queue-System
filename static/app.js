@@ -78,14 +78,31 @@ function renderPresets(data) {
         </div>
       </div>
 
-      <button class="pc-select-btn" type="button">Use This Plan</button>
+      <div class="pc-btn-row">
+        <button class="pc-select-btn" type="button">Use This Plan</button>
+        <button class="pc-demo-btn" type="button">▶ Watch Demo</button>
+      </div>
     </div>
   `).join("");
 
   presetGridEl.querySelectorAll(".preset-card").forEach((card) => {
-    card.querySelector(".pc-select-btn").addEventListener("click", () => selectPreset(card, data.plans));
+    card.querySelector(".pc-select-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectPreset(card, data.plans);
+    });
+    card.querySelector(".pc-demo-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(card.dataset.idx, 10);
+      const p = data.plans[idx];
+      const params = new URLSearchParams({
+        timezone: timezoneEl.value,
+        delay: String(p.start_delay_ms),
+        label: p.label,
+      });
+      window.open(`/demo-live?${params.toString()}`, "_blank");
+    });
     card.addEventListener("click", (e) => {
-      if (e.target.tagName !== "BUTTON") selectPreset(card, data.plans);
+      if (!e.target.closest("button")) selectPreset(card, data.plans);
     });
   });
 }
@@ -236,13 +253,11 @@ optimizeBtn.addEventListener("click", () => {
 });
 
 demoModeEl.addEventListener("change", () => {
+  // Only change the button label — never overwrite the user's start time
   if (demoModeEl.checked) {
     optimizeBtn.textContent = "Launch Live Demo";
-    const now = new Date();
-    startTimeEl.value = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
   } else {
     optimizeBtn.textContent = "Queue Optimize";
-    startTimeEl.value = "19:00";
   }
 });
 
