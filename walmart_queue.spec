@@ -11,23 +11,42 @@ import sys
 
 block_cipher = None
 
+# Platform-specific pywebview hidden imports
+if sys.platform == "win32":
+    webview_imports = [
+        "webview",
+        "webview.platforms.edgechromium",
+        "webview.platforms.winforms",
+        "clr",
+        "System",
+        "System.Windows.Forms",
+    ]
+elif sys.platform == "darwin":
+    webview_imports = [
+        "webview",
+        "webview.platforms.cocoa",
+        "objc",
+    ]
+else:
+    webview_imports = ["webview", "webview.platforms.gtk"]
+
 a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
     datas=[
-        ("templates", "templates"),
-        ("static",    "static"),
+        ("templates",  "templates"),
+        ("static",     "static"),
         ("version.py", "."),
     ],
     hiddenimports=[
         "version",
-        # zoneinfo / timezone support (critical for Windows which has no system tz db)
+        # zoneinfo / timezone support (critical on Windows)
         "zoneinfo",
         "zoneinfo._tzpath",
         "tzdata",
         "tzdata.zoneinfo",
-        # Flask internals sometimes missed by auto-analysis
+        # Flask internals
         "flask",
         "flask.templating",
         "jinja2",
@@ -36,7 +55,7 @@ a = Analysis(
         "werkzeug.routing",
         "werkzeug.serving",
         "click",
-    ],
+    ] + webview_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -45,6 +64,7 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    collect_all=["webview"],
 )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
@@ -63,14 +83,12 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    # Windows: hide the console window so users just see the browser
-    console=sys.platform != "win32",
-    # Mac: windowed mode gives a proper .app bundle behaviour
-    windowed=sys.platform == "darwin",
+    console=False,   # No terminal window on any platform
+    windowed=True,   # Native windowed app
     icon=None,
 )
 
-# Mac: wrap the exe in a .app bundle
+# Mac: wrap in a proper .app bundle
 if sys.platform == "darwin":
     app = BUNDLE(
         exe,
@@ -80,6 +98,6 @@ if sys.platform == "darwin":
         info_plist={
             "NSPrincipalClass": "NSApplication",
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleShortVersionString": "1.0.4",
         },
     )

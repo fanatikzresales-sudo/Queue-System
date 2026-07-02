@@ -3,14 +3,14 @@ name: Build & Release
 on:
   push:
     tags:
-      - "v*"          # Runs when you push a tag like v1.0.0
-  workflow_dispatch:  # Also lets you trigger it manually from GitHub Actions tab
+      - "v*"
+  workflow_dispatch:
 
 permissions:
-  contents: write   # needed to create releases and upload assets
+  contents: write
 
 jobs:
-  # ── Windows .exe ────────────────────────────────────────────────────────────
+  # ── Windows .exe ─────────────────────────────────────────────────────────────
   build-windows:
     name: Build Windows EXE
     runs-on: windows-latest
@@ -27,6 +27,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install "pyinstaller>=6.0.0"
+          pip install pywebview[winforms]
 
       - name: Build EXE
         run: pyinstaller walmart_queue.spec --clean --noconfirm
@@ -37,7 +38,7 @@ jobs:
           name: windows-exe
           path: dist/WalmartQueueOptimizer.exe
 
-  # ── macOS .app ──────────────────────────────────────────────────────────────
+  # ── macOS .app ───────────────────────────────────────────────────────────────
   build-mac:
     name: Build macOS App
     runs-on: macos-latest
@@ -54,6 +55,7 @@ jobs:
         run: |
           pip3 install -r requirements.txt
           pip3 install "pyinstaller>=6.0.0"
+          pip3 install pywebview
 
       - name: Build .app bundle
         run: pyinstaller walmart_queue.spec --clean --noconfirm
@@ -69,7 +71,7 @@ jobs:
           name: mac-app
           path: dist/WalmartQueueOptimizer-Mac.zip
 
-  # ── Create GitHub Release with both files ───────────────────────────────────
+  # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Create Release
     needs: [build-windows, build-mac]
@@ -99,16 +101,20 @@ jobs:
             ### Download
             | Platform | File |
             |----------|------|
-            | **Windows** | `WalmartQueueOptimizer.exe` — double-click to run |
+            | **Windows** | `WalmartQueueOptimizer.exe` — double-click to open |
             | **Mac** | `WalmartQueueOptimizer-Mac.zip` — unzip, drag to Applications |
 
-            ### How to use
-            1. Download the file for your platform above
-            2. Open it — your browser launches automatically
-            3. Pick a preset plan or enter a custom start time
-            4. Hit **Queue Optimize** to get your 2-step delay schedule
+            ### What's new in this version
+            - Opens as a **standalone desktop app window** — no browser needed
+            - Notifications alert you when it's time to start and drop your delay
+            - All timezone times display correctly (CDT / EDT / PDT)
+            - Auto-advances to next Wednesday after each drop
 
-            > **Mac users:** Right-click → Open the first time to bypass Gatekeeper
+            ### First time on Mac?
+            Right-click the app → Open → Open (bypasses Gatekeeper warning)
+
+            ### Windows SmartScreen?
+            Click "More info" → "Run anyway"
           files: |
             release-files/WalmartQueueOptimizer.exe
             release-files/WalmartQueueOptimizer-Mac.zip
