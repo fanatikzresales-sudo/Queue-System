@@ -3,12 +3,17 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import threading
+import time
+import urllib.request
 from datetime import datetime, timedelta
 
 from flask import Flask, jsonify, render_template, request
 
+from version import APP_VERSION, GITHUB_REPO, RELEASES_URL
 from scheduler import (
     DEFAULT_QUEUE_HOUR,
     LIVE_DEMO_INITIAL_DELAY_MS,
@@ -40,6 +45,32 @@ app = Flask(
     static_folder=_resource_path("static"),
 )
 
+# ── Auto-update checker ────────────────────────────────────────────────────────
+
+_update_cache: dict = {"latest": None, "download_url": RELEASES_URL}
+_update_lock = threading.Lock()
+
+
+def _fetch_latest_version() -> None:
+    """Background thread: poll GitHub releases API every hour."""
+    while True:
+        try:
+            url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "WalmartQueueOptimizer"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            with _update_lock:
+                _update_cache["latest"] = data.get("tag_name", "").lstrip("v")
+                _update_cache["download_url"] = data.get("html_url", RELEASES_URL)
+        except Exception:
+            pass  # Silently ignore — no internet, rate limit, etc.
+        time.sleep(3600)
+
+
+threading.Thread(target=_fetch_latest_version, daemon=True).start()
+
 
 def _parse_time(value: str) -> tuple[int, int, int]:
     parts = value.strip().split(":")
@@ -67,6 +98,29 @@ def _resolve_start(start_time: str, target, tz_key: str, demo: bool = False):
         else:
             raise ValueError("Start time must be before queue go-live.")
     return start
+
+
+@app.route("/api/version")
+def version_api():
+    with _update_lock:
+        latest = _update_cache.get("latest")
+        download_url = _update_cache.get("download_url", RELEASES_URL)
+
+    update_available = False
+    if latest:
+        try:
+            cur = [int(x) for x in APP_VERSION.split(".")]
+            lat = [int(x) for x in latest.split(".")]
+            update_available = lat > cur
+        except ValueError:
+            pass
+
+    return jsonify({
+        "current": APP_VERSION,
+        "latest": latest,
+        "update_available": update_available,
+        "download_url": download_url,
+    })
 
 
 @app.route("/demo-live")

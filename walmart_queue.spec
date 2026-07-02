@@ -16,11 +16,12 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        # Bundle the web UI assets into the executable
         ("templates", "templates"),
         ("static",    "static"),
+        ("version.py", "."),
     ],
     hiddenimports=[
+        "version",
         # zoneinfo / timezone support (critical for Windows which has no system tz db)
         "zoneinfo",
         "zoneinfo._tzpath",

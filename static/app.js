@@ -612,3 +612,20 @@ demoModeEl.addEventListener("change", () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadPresets();
+
+// Check for updates in the background
+(async () => {
+  try {
+    const res = await fetch("/api/version");
+    const data = await res.json();
+    if (data.update_available) {
+      const banner = document.getElementById("update-banner");
+      document.getElementById("ub-version").textContent = `v${data.latest}`;
+      document.getElementById("ub-link").href = data.download_url;
+      banner.hidden = false;
+      document.getElementById("ub-dismiss").addEventListener("click", () => {
+        banner.hidden = true;
+      });
+    }
+  } catch (_) {}
+})();
