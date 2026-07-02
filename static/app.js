@@ -11,6 +11,7 @@ const verificationEl = document.getElementById("verification");
 const summaryEl = document.getElementById("summary");
 const dropTableBody = document.querySelector("#drop_table tbody");
 const finalRefreshesEl = document.getElementById("final_refreshes");
+const twoStepCardsEl = document.getElementById("two_step_cards");
 
 function payload() {
   return {
@@ -28,6 +29,7 @@ function showError(message) {
   summaryEl.innerHTML = "";
   dropTableBody.innerHTML = "";
   finalRefreshesEl.innerHTML = "";
+  if (twoStepCardsEl) twoStepCardsEl.innerHTML = "";
 }
 
 function formatMs(ms) {
@@ -67,21 +69,47 @@ function renderResults(data) {
     ? "Verified — refresh hits queue go-live exactly"
     : "Warning — last refresh may not align exactly";
 
+  const startStep = data.drop_schedule[0];
+  const dropStep = data.drop_schedule[1];
+
   summaryEl.innerHTML = `
-    <div><span>Mode</span><span>${data.mode === "demo" ? "Demo (5 min test)" : "Live (Wednesday 8 PM)"}</span></div>
+    <div><span>Mode</span><span>${data.mode === "demo" ? "Demo test" : "Live (Wednesday 8 PM)"}</span></div>
     <div><span>Timezone</span><span>${data.timezone}</span></div>
     <div><span>Queue goes live</span><span>${data.queue_live}</span></div>
     <div><span>Your start</span><span>${data.start_time}</span></div>
   `;
 
+  if (startStep && dropStep) {
+    twoStepCardsEl.innerHTML = `
+      <div class="step-card start-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Start your task</strong>
+          <p>At <span class="highlight">${startStep.at.replace(/,.*/, "")}</span> set delay to
+          <span class="highlight">${startStep.delay_label}</span></p>
+          <small>${startStep.refreshes_until_next} refreshes until the drop</small>
+        </div>
+      </div>
+      <div class="step-card drop-card">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Drop once — ${dropStep.minutes_before} before queue</strong>
+          <p>At <span class="highlight">${dropStep.at}</span> change delay to
+          <span class="highlight">${dropStep.delay_label}</span></p>
+          <small>${dropStep.refreshes_until_next} refreshes until queue goes live</small>
+        </div>
+      </div>
+    `;
+  }
+
   dropTableBody.innerHTML = data.drop_schedule
     .map(
       (step, i) => `
       <tr class="${step.is_start ? "start-row" : "drop-row"}">
+        <td>${step.is_start ? "Start" : "Drop once"}</td>
         <td>${step.is_start ? "START NOW" : step.at}</td>
         <td>${step.minutes_before} before</td>
         <td>${step.delay_label}</td>
-        <td>${step.refreshes_until_next ?? "—"}</td>
       </tr>`
     )
     .join("");

@@ -10,7 +10,6 @@ from flask import Flask, jsonify, render_template, request
 from scheduler import (
     DEFAULT_QUEUE_HOUR,
     LIVE_DEMO_INITIAL_DELAY_MS,
-    LIVE_DEMO_MILESTONES,
     LIVE_DEMO_MINUTES,
     TIMEZONE_LABELS,
     TIMEZONES,
@@ -78,7 +77,6 @@ def demo_live_api():
         start=start,
         tz_key=tz_key,
         initial_delay_ms=initial_delay_ms,
-        milestones_min=LIVE_DEMO_MILESTONES,
     )
     return jsonify(
         {

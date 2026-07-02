@@ -49,42 +49,38 @@ class TestSchedule(unittest.TestCase):
     def _target(self) -> datetime:
         return datetime(2026, 7, 8, 20, 0, 0, tzinfo=CT)
 
+    def test_only_two_delay_steps(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        schedule = build_schedule(target=target, start=start, initial_delay_ms=60_000)
+        self.assertEqual(len(schedule.steps), 2)
+
     def test_hits_eight_pm_exactly_from_one_hour_early(self):
         target = self._target()
         start = target - timedelta(hours=1)
-        schedule = build_schedule(target=target, start=start)
+        schedule = build_schedule(target=target, start=start, initial_delay_ms=60_000)
         self.assertTrue(schedule.hits_target_exactly)
         self.assertEqual(schedule.final_refresh_times[-1], target)
 
-    def test_three_minute_step_uses_1500ms(self):
+    def test_one_hour_thirty_start(self):
         target = self._target()
-        start = target - timedelta(hours=1)
-        schedule = build_schedule(target=target, start=start)
-        three_min_step = next(s for s in schedule.steps if s.minutes_before == 3)
-        self.assertEqual(three_min_step.delay_ms, 1_500)
+        start = target - timedelta(minutes=90)
+        schedule = build_schedule(target=target, start=start, initial_delay_ms=60_000)
+        self.assertEqual(len(schedule.steps), 2)
+        self.assertTrue(schedule.hits_target_exactly)
 
     def test_works_when_starting_three_minutes_early(self):
         target = self._target()
         start = target - timedelta(minutes=3)
-        schedule = build_schedule(target=target, start=start)
+        schedule = build_schedule(target=target, start=start, initial_delay_ms=1_500)
         self.assertTrue(schedule.hits_target_exactly)
-
-    def test_custom_initial_delay(self):
-        target = self._target()
-        start = target - timedelta(hours=1)
-        schedule = build_schedule(
-            target=target,
-            start=start,
-            initial_delay_ms=60_000,
-        )
-        self.assertEqual(schedule.steps[0].delay_ms, 60_000)
-        self.assertTrue(schedule.hits_target_exactly)
+        self.assertLessEqual(len(schedule.steps), 2)
 
     def test_recommended_start_delays(self):
         target = self._target()
         start = target - timedelta(hours=1)
         options = recommended_start_delays(target=target, start=start)
-        self.assertTrue(any(o.delay_ms == 60_000 and o.aligns_to_queue for o in options))
+        self.assertTrue(any(o.delay_ms == 60_000 for o in options))
 
     def test_demo_target(self):
         now = datetime(2026, 7, 2, 14, 0, 0, tzinfo=CT)
@@ -97,6 +93,7 @@ class TestSchedule(unittest.TestCase):
         schedule = build_schedule(target=target, start=start, initial_delay_ms=30_000)
         data = schedule_to_dict(schedule)
         self.assertIn("drop_schedule", data)
+        self.assertEqual(len(data["drop_schedule"]), 2)
         self.assertTrue(data["hits_target_exactly"])
 
 

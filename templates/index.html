@@ -12,8 +12,8 @@
       <div class="badge">Pokemon Queue</div>
       <h1>Walmart Queue Optimizer</h1>
       <p class="subtitle">
-        Set your start time and starting delay. Hit <strong>Queue Optimize</strong> to get
-        exact drop times so your refresh lands at <strong>8:00 PM</strong> when the queue goes live.
+        Two delays only: one when you start, one drop before queue live — so your team
+        stays in sync and hits <strong>8:00 PM</strong> exactly.
         <a class="live-link" href="/demo-live">Watch the live demo →</a>
       </p>
     </header>
@@ -60,7 +60,7 @@
 
       <section class="panel starters">
         <h2>Recommended Starting Delays</h2>
-        <p class="hint">Safe delays you can start with. Green = hits queue exactly without extra drops.</p>
+        <p class="hint">Each option uses exactly <strong>one drop</strong> before queue live. Click to select.</p>
         <div id="starter_list" class="starter-list">
           <p class="placeholder">Enter a start time and click Refresh Starter Delays.</p>
         </div>
@@ -68,21 +68,23 @@
 
       <section class="panel results" id="results_panel" hidden>
         <div class="results-header">
-          <h2>Optimized Drop Schedule</h2>
+          <h2>Your 2-Step Schedule</h2>
           <div id="verification" class="verification"></div>
         </div>
 
         <div class="summary" id="summary"></div>
 
-        <h3>When to Drop Your Delay</h3>
+        <div id="two_step_cards" class="two-step-cards"></div>
+
+        <h3>Quick Copy</h3>
         <div class="table-wrap">
           <table id="drop_table">
             <thead>
               <tr>
+                <th>Step</th>
                 <th>When</th>
                 <th>Before Queue</th>
-                <th>Set Delay To</th>
-                <th>Refreshes Until Next</th>
+                <th>Delay</th>
               </tr>
             </thead>
             <tbody></tbody>

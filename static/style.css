@@ -345,3 +345,66 @@ tr.drop-row td:first-child {
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
+
+.two-step-cards {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+@media (min-width: 700px) {
+  .two-step-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.step-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: #0f1419;
+}
+
+.step-card.start-card {
+  border-color: rgba(0, 113, 206, 0.45);
+}
+
+.step-card.drop-card {
+  border-color: rgba(241, 196, 15, 0.45);
+}
+
+.step-num {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.drop-card .step-num {
+  background: var(--warning);
+  color: #111;
+}
+
+.step-body p {
+  margin: 0.35rem 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.step-body small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.step-body .highlight {
+  color: var(--text);
+  font-weight: 700;
+}

@@ -59,33 +59,10 @@ STARTER_DELAY_OPTIONS_MS = [
     5_000,
 ]
 
-DEFAULT_MILESTONES_MIN = [
-    60,
-    45,
-    30,
-    15,
-    10,
-    5,
-    3,
-    2,
-    1,
-    0.5,
-    0.25,
-    10 / 60,
-    5 / 60,
-]
+DEFAULT_SWITCH_MINUTES_CANDIDATES = [10, 8, 7, 6, 5, 4, 3, 2]
 
-DEFAULT_MAX_DELAY_BY_MINUTES_BEFORE = [
-    (60, 60_000),
-    (30, 30_000),
-    (15, 20_000),
-    (10, 15_000),
-    (5, 10_000),
-    (3, 1_500),
-    (2, 1_000),
-    (1, 2_000),
-    (0, 1_500),
-]
+# Preferred final-phase delays (ms) — picked for the single pre-queue drop.
+FINAL_DELAY_PREFERENCES = [5_000, 3_000, 2_000, 1_500, 1_000, 800, 500]
 
 
 @dataclass(frozen=True)
@@ -104,6 +81,8 @@ class DelayStep:
 class StartDelayOption:
     delay_ms: int
     aligns_to_queue: bool
+    switch_minutes_before: float | None
+    final_delay_ms: int | None
     refreshes_until_queue: int
     label: str
 
@@ -171,16 +150,6 @@ def _ensure_central(dt: datetime) -> datetime:
     return _ensure_tz(dt, CENTRAL)
 
 
-def _max_delay_for_minutes_before(
-    minutes_before: float,
-    caps: list[tuple[float, int]],
-) -> int:
-    for threshold, max_delay in caps:
-        if minutes_before >= threshold:
-            return max_delay
-    return caps[-1][1]
-
-
 def find_aligned_delay(
     remaining_ms: int,
     *,
@@ -203,128 +172,202 @@ def find_aligned_delay(
     return min_delay, remaining_ms % min_delay == 0
 
 
+def find_final_delay(
+    remaining_ms: int,
+    *,
+    min_delay: int = 250,
+    preferred: Iterable[int] = FINAL_DELAY_PREFERENCES,
+) -> tuple[int, bool]:
+    """Pick a final-phase delay so remaining time hits queue go-live exactly."""
+    if remaining_ms <= 0:
+        return min_delay, True
+
+    for delay in preferred:
+        if delay < min_delay or delay > remaining_ms:
+            continue
+        if remaining_ms % delay == 0:
+            return delay, True
+
+    for delay in PREFERRED_DELAYS_MS:
+        if delay < min_delay or delay > remaining_ms:
+            continue
+        if remaining_ms % delay == 0:
+            return delay, True
+
+    if remaining_ms >= min_delay:
+        return remaining_ms, False
+
+    return min_delay, remaining_ms % min_delay == 0
+
+
+def _snap_switch_to_start_grid(start: datetime, ideal_switch: datetime, initial_delay_ms: int) -> datetime | None:
+    """Move switch time to the last start-delay refresh on or before ideal_switch."""
+    phase1_ms = int((ideal_switch - start).total_seconds() * 1000)
+    if phase1_ms < initial_delay_ms:
+        return None
+    n = phase1_ms // initial_delay_ms
+    return start + timedelta(milliseconds=n * initial_delay_ms)
+
+
+def build_two_step_schedule(
+    *,
+    target: datetime,
+    start: datetime,
+    initial_delay_ms: int,
+    switch_minutes_before: float | None = None,
+    min_delay_ms: int = 250,
+) -> list[DelayStep]:
+    """
+    Build exactly two delay steps:
+      1. Starting delay from task start until one switch point
+      2. Final delay from switch point until queue go-live (exact refresh)
+    """
+    if initial_delay_ms < min_delay_ms:
+        raise ValueError(f"Initial delay must be at least {min_delay_ms} ms.")
+
+    candidates = (
+        [switch_minutes_before]
+        if switch_minutes_before is not None
+        else DEFAULT_SWITCH_MINUTES_CANDIDATES
+    )
+
+    best: tuple[datetime, int, int, float, float] | None = None
+
+    for switch_min in sorted(candidates, reverse=True):
+        if switch_min <= 0:
+            continue
+        ideal_switch = target - timedelta(minutes=switch_min)
+        if ideal_switch <= start:
+            continue
+
+        switch_at = _snap_switch_to_start_grid(start, ideal_switch, initial_delay_ms)
+        if switch_at is None or switch_at >= target:
+            continue
+
+        phase1_ms = int((switch_at - start).total_seconds() * 1000)
+        phase2_ms = int((target - switch_at).total_seconds() * 1000)
+        if phase2_ms < min_delay_ms:
+            continue
+
+        final_delay_ms, final_aligned = find_final_delay(phase2_ms, min_delay=min_delay_ms)
+        if not final_aligned:
+            continue
+
+        phase1_aligned = phase1_ms % initial_delay_ms == 0
+        if not phase1_aligned:
+            continue
+
+        actual_switch_min = phase2_ms / 60_000
+        refreshes_phase1 = phase1_ms // initial_delay_ms
+        score = actual_switch_min
+        if best is None or score > best[3]:
+            best = (switch_at, final_delay_ms, refreshes_phase1, actual_switch_min, switch_min)
+
+    if best is None:
+        raise ValueError(
+            "Could not build a two-step schedule with this start time and delay. "
+            "Try a different starting delay (see recommended options)."
+        )
+
+    switch_at, final_delay_ms, refreshes_phase1, actual_switch_min, _ = best
+    phase1_ms = int((switch_at - start).total_seconds() * 1000)
+    phase2_ms = int((target - switch_at).total_seconds() * 1000)
+    refreshes_phase2 = phase2_ms // final_delay_ms
+
+    start_minutes_before = (target - start).total_seconds() / 60
+    switch_minutes_before_val = (target - switch_at).total_seconds() / 60
+
+    return [
+        DelayStep(
+            at=start,
+            minutes_before=start_minutes_before,
+            delay_ms=initial_delay_ms,
+            refreshes_until_next=refreshes_phase1,
+            segment_ms=phase1_ms,
+            aligned=True,
+        ),
+        DelayStep(
+            at=switch_at,
+            minutes_before=switch_minutes_before_val,
+            delay_ms=final_delay_ms,
+            refreshes_until_next=refreshes_phase2,
+            segment_ms=phase2_ms,
+            aligned=True,
+        ),
+    ]
+
+
 def recommended_start_delays(
     *,
     target: datetime,
     start: datetime,
     tz_key: str = "CDT",
+    switch_minutes_before: float | None = None,
 ) -> list[StartDelayOption]:
-    """Return starter delays that align refreshes with queue go-live."""
+    """Return starting delays that work with a single pre-queue drop."""
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     start = _ensure_tz(start, tz)
-    total_ms = int((target - start).total_seconds() * 1000)
-    if total_ms <= 0:
-        return []
 
     options: list[StartDelayOption] = []
     for delay in STARTER_DELAY_OPTIONS_MS:
-        if delay > total_ms:
+        try:
+            steps = build_two_step_schedule(
+                target=target,
+                start=start,
+                initial_delay_ms=delay,
+                switch_minutes_before=switch_minutes_before,
+            )
+        except ValueError:
             continue
-        aligns = total_ms % delay == 0
-        refreshes = total_ms // delay if aligns else 0
-        if aligns:
-            label = f"{format_duration_ms(delay)} — {refreshes} refreshes, hits queue exactly"
-        else:
-            partial = int((total_ms // delay))
-            label = f"{format_duration_ms(delay)} — {partial} refreshes (needs drop schedule)"
+
+        switch_min = steps[1].minutes_before
+        final_delay = steps[1].delay_ms
+        total_refreshes = (steps[0].refreshes_until_next or 0) + (steps[1].refreshes_until_next or 0)
+        label = (
+            f"{format_duration_ms(delay)} start → drop at "
+            f"{format_minutes_before(switch_min)} before → "
+            f"{format_duration_ms(final_delay)} until live"
+        )
         options.append(
             StartDelayOption(
                 delay_ms=delay,
-                aligns_to_queue=aligns,
-                refreshes_until_queue=refreshes if aligns else partial,
+                aligns_to_queue=True,
+                switch_minutes_before=switch_min,
+                final_delay_ms=final_delay,
+                refreshes_until_queue=total_refreshes,
                 label=label,
             )
         )
     return options
 
 
-def _filter_milestones(start_minutes_before: float, milestones_min: list[float]) -> list[float]:
-    return [m for m in sorted(milestones_min, reverse=True) if 0 < m < start_minutes_before]
-
-
-def _build_steps_from_boundaries(
-    *,
-    target: datetime,
-    boundary_minutes: list[float],
-    max_delay_caps: list[tuple[float, int]],
-    min_delay_ms: int,
-    first_delay_override: int | None = None,
-) -> list[DelayStep]:
-    boundary_times = [target - timedelta(minutes=m) for m in boundary_minutes]
-    steps: list[DelayStep] = []
-
-    for i in range(len(boundary_times) - 1):
-        at = boundary_times[i]
-        next_at = boundary_times[i + 1]
-        minutes_before = boundary_minutes[i]
-        segment_ms = int((next_at - at).total_seconds() * 1000)
-
-        if i == 0 and first_delay_override is not None:
-            delay_ms = first_delay_override
-            aligned = segment_ms % delay_ms == 0 if delay_ms else False
-        else:
-            max_delay = _max_delay_for_minutes_before(minutes_before, max_delay_caps)
-            delay_ms, aligned = find_aligned_delay(
-                segment_ms,
-                max_delay=max_delay,
-                min_delay=min_delay_ms,
-            )
-
-        refreshes = segment_ms // delay_ms if delay_ms else None
-        steps.append(
-            DelayStep(
-                at=at,
-                minutes_before=minutes_before,
-                delay_ms=delay_ms,
-                refreshes_until_next=refreshes,
-                segment_ms=segment_ms,
-                aligned=aligned,
-            )
-        )
-    return steps
-
-
 def build_schedule(
     *,
     target: datetime,
     start: datetime | None = None,
-    milestones_min: list[float] | None = None,
-    max_delay_caps: list[tuple[float, int]] | None = None,
     min_delay_ms: int = 250,
     tz_key: str = "CDT",
     initial_delay_ms: int | None = None,
+    switch_minutes_before: float | None = None,
+    **_kwargs,
 ) -> Schedule:
+    """Build a simple two-delay schedule: start delay + one drop before queue live."""
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     start = _ensure_tz(start or datetime.now(tz), tz)
-    milestones_min = milestones_min or DEFAULT_MILESTONES_MIN
-    max_delay_caps = max_delay_caps or DEFAULT_MAX_DELAY_BY_MINUTES_BEFORE
 
-    start_minutes_before = (target - start).total_seconds() / 60
-    if start_minutes_before <= 0:
+    if (target - start).total_seconds() <= 0:
         raise ValueError("Start time must be before queue go-live.")
 
-    milestones = _filter_milestones(start_minutes_before, milestones_min)
-    boundary_minutes = [start_minutes_before] + milestones + [0.0]
-
-    if initial_delay_ms is not None:
-        steps = _build_schedule_with_initial_delay(
-            target=target,
-            start=start,
-            initial_delay_ms=initial_delay_ms,
-            milestones=milestones,
-            start_minutes_before=start_minutes_before,
-            max_delay_caps=max_delay_caps,
-            min_delay_ms=min_delay_ms,
-        )
-    else:
-        steps = _build_steps_from_boundaries(
-            target=target,
-            boundary_minutes=boundary_minutes,
-            max_delay_caps=max_delay_caps,
-            min_delay_ms=min_delay_ms,
-        )
+    delay = initial_delay_ms if initial_delay_ms is not None else 60_000
+    steps = build_two_step_schedule(
+        target=target,
+        start=start,
+        initial_delay_ms=delay,
+        switch_minutes_before=switch_minutes_before,
+        min_delay_ms=min_delay_ms,
+    )
 
     final_refresh_times = _simulate_refreshes(steps, target)
     return Schedule(
@@ -334,96 +377,6 @@ def build_schedule(
         final_refresh_times=final_refresh_times,
         timezone_key=tz_key.upper(),
     )
-
-
-def _build_schedule_with_initial_delay(
-    *,
-    target: datetime,
-    start: datetime,
-    initial_delay_ms: int,
-    milestones: list[float],
-    start_minutes_before: float,
-    max_delay_caps: list[tuple[float, int]],
-    min_delay_ms: int,
-) -> list[DelayStep]:
-    """Build schedule forcing the user's chosen starting delay."""
-    if initial_delay_ms < min_delay_ms:
-        raise ValueError(f"Initial delay must be at least {min_delay_ms} ms.")
-
-    first_boundary_minutes = milestones[0] if milestones else 0.0
-    first_boundary_at = target - timedelta(minutes=first_boundary_minutes)
-    first_segment_ms = int((first_boundary_at - start).total_seconds() * 1000)
-
-    if first_segment_ms <= 0:
-        return _build_steps_from_boundaries(
-            target=target,
-            boundary_minutes=[start_minutes_before, 0.0],
-            max_delay_caps=max_delay_caps,
-            min_delay_ms=min_delay_ms,
-            first_delay_override=initial_delay_ms,
-        )
-
-    aligned_first = first_segment_ms % initial_delay_ms == 0
-    transition_at = first_boundary_at
-
-    if not aligned_first:
-        t = start + timedelta(milliseconds=initial_delay_ms)
-        last_refresh = start
-        while t <= first_boundary_at:
-            last_refresh = t
-            t += timedelta(milliseconds=initial_delay_ms)
-        transition_at = last_refresh
-
-    first_minutes_before = (target - start).total_seconds() / 60
-    first_step_segment_ms = int((transition_at - start).total_seconds() * 1000)
-    first_refreshes = first_step_segment_ms // initial_delay_ms if initial_delay_ms else 0
-
-    steps: list[DelayStep] = [
-        DelayStep(
-            at=start,
-            minutes_before=first_minutes_before,
-            delay_ms=initial_delay_ms,
-            refreshes_until_next=first_refreshes,
-            segment_ms=first_step_segment_ms,
-            aligned=first_step_segment_ms % initial_delay_ms == 0 if initial_delay_ms else False,
-        )
-    ]
-
-    if transition_at >= target:
-        return steps
-
-    remaining_minutes_before = (target - transition_at).total_seconds() / 60
-    remaining_milestones = _filter_milestones(remaining_minutes_before, milestones)
-    boundary_minutes = [remaining_minutes_before] + remaining_milestones + [0.0]
-    boundary_times = [target - timedelta(minutes=m) for m in boundary_minutes]
-
-    for i in range(len(boundary_times) - 1):
-        at = boundary_times[i]
-        if i == 0:
-            at = transition_at
-        next_at = boundary_times[i + 1]
-        minutes_before = (target - at).total_seconds() / 60
-        segment_ms = int((next_at - at).total_seconds() * 1000)
-
-        max_delay = _max_delay_for_minutes_before(minutes_before, max_delay_caps)
-        delay_ms, aligned = find_aligned_delay(
-            segment_ms,
-            max_delay=max_delay,
-            min_delay=min_delay_ms,
-        )
-        refreshes = segment_ms // delay_ms if delay_ms else None
-        steps.append(
-            DelayStep(
-                at=at,
-                minutes_before=minutes_before,
-                delay_ms=delay_ms,
-                refreshes_until_next=refreshes,
-                segment_ms=segment_ms,
-                aligned=aligned,
-            )
-        )
-
-    return steps
 
 
 def _simulate_refreshes(steps: list[DelayStep], target: datetime) -> list[datetime]:
@@ -478,10 +431,13 @@ def schedule_to_dict(schedule: Schedule) -> dict:
         "queue_live": fmt_full(schedule.target),
         "start_time": fmt_full(schedule.start),
         "hits_target_exactly": schedule.hits_target_exactly,
+        "two_step_only": True,
         "starter_options": [
             {
                 "delay_ms": o.delay_ms,
                 "aligns_to_queue": o.aligns_to_queue,
+                "switch_minutes_before": o.switch_minutes_before,
+                "final_delay_ms": o.final_delay_ms,
                 "refreshes_until_queue": o.refreshes_until_queue,
                 "label": o.label,
             }
@@ -494,6 +450,7 @@ def schedule_to_dict(schedule: Schedule) -> dict:
         "drop_schedule": [
             {
                 "is_start": i == 0,
+                "is_final_drop": i == 1,
                 "at": fmt(step.at),
                 "minutes_before": format_minutes_before(step.minutes_before),
                 "delay_ms": step.delay_ms,
@@ -547,7 +504,6 @@ def fmt_refresh(dt: datetime, tz: ZoneInfo) -> str:
     return local.strftime("%I:%M:%S.%f")[:-3] + f" {local.strftime('%p')} {local.tzname()}"
 
 
-# Short milestones for the 3-minute live demo window.
+# Live demo uses the same two-step logic (start delay + one final drop).
 LIVE_DEMO_MINUTES = 3.0
-LIVE_DEMO_MILESTONES = [2, 1, 0.5, 0.25, 10 / 60, 5 / 60]
 LIVE_DEMO_INITIAL_DELAY_MS = 15_000

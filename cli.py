@@ -29,7 +29,7 @@ def _format_clock(dt: datetime) -> str:
 def print_schedule(schedule: Schedule) -> None:
     print()
     print("=" * 72)
-    print("  WALMART QUEUE DELAY SCHEDULE")
+    print("  WALMART QUEUE — 2-STEP DELAY SCHEDULE")
     print("=" * 72)
     print()
     print(f"  Timezone        : {schedule.timezone_key}")
