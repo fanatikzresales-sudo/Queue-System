@@ -1,19 +1,22 @@
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const timezoneEl     = document.getElementById("timezone");
-const demoModeEl     = document.getElementById("demo_mode");
-const demoLiveLink   = document.getElementById("demo_live_link");
-const startTimeEl    = document.getElementById("start_time");
-const initialDelayEl = document.getElementById("initial_delay_ms");
-const delayPresetEl  = document.getElementById("delay_preset");
-const optimizeBtn    = document.getElementById("optimize_btn");
-const queueLiveLabel = document.getElementById("queue_live_label");
-const presetGridEl   = document.getElementById("preset_grid");
-const resultsPanelEl = document.getElementById("results_panel");
-const verificationEl = document.getElementById("verification");
-const summaryEl      = document.getElementById("summary");
-const twoStepCardsEl = document.getElementById("two_step_cards");
-const dropTableBody  = document.querySelector("#drop_table tbody");
+const timezoneEl       = document.getElementById("timezone");
+const demoModeEl       = document.getElementById("demo_mode");
+const startTimeEl      = document.getElementById("start_time");
+const initialDelayEl   = document.getElementById("initial_delay_ms");
+const delayPresetEl    = document.getElementById("delay_preset");
+const optimizeBtn      = document.getElementById("optimize_btn");
+const queueLiveLabel   = document.getElementById("queue_live_label");
+const presetGridEl     = document.getElementById("preset_grid");
+const resultsPanelEl   = document.getElementById("results_panel");
+const verificationEl   = document.getElementById("verification");
+const summaryEl        = document.getElementById("summary");
+const twoStepCardsEl   = document.getElementById("two_step_cards");
+const dropTableBody    = document.querySelector("#drop_table tbody");
 const finalRefreshesEl = document.getElementById("final_refreshes");
+const activePlansSection = document.getElementById("active-plans-section");
+const activePlansList  = document.getElementById("active-plans-list");
+const activePlansCount = document.getElementById("active-plans-count");
+const cancelAllBtn     = document.getElementById("cancel-all-btn");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -36,46 +39,104 @@ function formatCountdown(ms) {
   return `${s}s`;
 }
 
-// ── Notification Manager ──────────────────────────────────────────────────────
+let _nameCounter = 1;
+function defaultName() { return `Bot ${_nameCounter++}`; }
 
-const NM = (() => {
-  let timers = [];
-  let activePopups = [];
+// ── Multi-Plan Manager ────────────────────────────────────────────────────────
 
-  function clearAll() {
-    timers.forEach(clearTimeout);
-    timers = [];
-    activePopups.forEach(p => p.remove());
-    activePopups = [];
-  }
+const PM = (() => {
+  const plans = {};   // id -> { name, plan, timers, countdownInterval, popupId }
 
-  function _makePopup(id, content) {
+  // ── popup helpers ──────────────────────────────────────────────────────────
+
+  function _popupId(planId) { return `notif-${planId}`; }
+  function _dropPopupId(planId) { return `notif-drop-${planId}`; }
+
+  function _makePopup(id, content, urgent = false) {
     const existing = document.getElementById(id);
     if (existing) existing.remove();
     const el = document.createElement("div");
     el.id = id;
-    el.className = "notif-popup";
+    el.className = "notif-popup" + (urgent ? " notif-urgent" : "");
     el.innerHTML = content;
+
+    // Stack multiple popups
+    const offset = Object.keys(plans).length * 8;
+    el.style.top = `${1.25 + offset * 0.4}rem`;
+
     document.body.appendChild(el);
-    activePopups.push(el);
     requestAnimationFrame(() => el.classList.add("notif-visible"));
-    el.querySelector(".notif-close")?.addEventListener("click", () => {
-      el.classList.remove("notif-visible");
-      setTimeout(() => el.remove(), 300);
-    });
+    el.querySelectorAll(".notif-close").forEach(btn =>
+      btn.addEventListener("click", () => {
+        el.classList.remove("notif-visible");
+        setTimeout(() => el.remove(), 300);
+      })
+    );
     return el;
   }
 
-  function showStartReminder(plan) {
-    const msUntil = plan.start_ts_ms - Date.now();
-    let countdownInterval;
+  // ── Active plans panel ─────────────────────────────────────────────────────
 
-    const pop = _makePopup("notif-start", `
+  function _refreshPanel() {
+    const ids = Object.keys(plans);
+    activePlansCount.textContent = ids.length;
+    activePlansSection.hidden = ids.length === 0;
+
+    activePlansList.innerHTML = ids.map(id => {
+      const { name, plan } = plans[id];
+      const msUntilStart = plan.start_ts_ms - Date.now();
+      const phase = msUntilStart > 0 ? "starting" : (plan.drop_ts_ms - Date.now() > 0 ? "dropping" : "live");
+      return `
+        <div class="ap-item" data-id="${id}">
+          <div class="ap-dot ${phase}"></div>
+          <div class="ap-info">
+            <div class="ap-name">${name}</div>
+            <div class="ap-label">${plan.label}</div>
+            <div class="ap-times">${plan.start_time_display} → ${plan.drop_time_display} → ${plan.queue_time_display}</div>
+          </div>
+          <div class="ap-right">
+            <div class="ap-countdown" id="apc-${id}">${_countdownLabel(plan)}</div>
+            <button class="ap-cancel-btn" data-id="${id}" type="button">Cancel</button>
+          </div>
+        </div>
+      `;
+    }).join("") || "";
+
+    activePlansList.querySelectorAll(".ap-cancel-btn").forEach(btn =>
+      btn.addEventListener("click", () => cancel(btn.dataset.id))
+    );
+  }
+
+  function _countdownLabel(plan) {
+    const msUntilStart = plan.start_ts_ms - Date.now();
+    const msUntilDrop  = plan.drop_ts_ms  - Date.now();
+    if (msUntilStart > 0) return `Start in ${formatCountdown(msUntilStart)}`;
+    if (msUntilDrop  > 0) return `Drop in  ${formatCountdown(msUntilDrop)}`;
+    return "Queue live";
+  }
+
+  function _tickCountdowns() {
+    Object.keys(plans).forEach(id => {
+      const el = document.getElementById(`apc-${id}`);
+      if (el) el.textContent = _countdownLabel(plans[id].plan);
+    });
+  }
+
+  setInterval(_tickCountdowns, 1000);
+
+  // ── Show start popup ───────────────────────────────────────────────────────
+
+  function _showStartPopup(id, name, plan) {
+    const msUntil = plan.start_ts_ms - Date.now();
+    let interval;
+
+    const pop = _makePopup(_popupId(id), `
       <div class="notif-header">
         <span class="notif-icon">🎯</span>
-        <span class="notif-title">Plan Active — Reminders Set</span>
+        <span class="notif-title">Plan Active</span>
         <button class="notif-close">✕</button>
       </div>
+      <div class="notif-plan-name">${name}</div>
       <div class="notif-plan-badge">${plan.label}</div>
       <div class="notif-overview">
         <div class="notif-row">
@@ -96,89 +157,184 @@ const NM = (() => {
         </div>
       </div>
       <div class="notif-countdown-row">
-        <span>Time until you need to start:</span>
-        <span class="notif-countdown" id="notif-start-countdown">${formatCountdown(msUntil)}</span>
+        <span>Time until start:</span>
+        <span class="notif-countdown" id="ncd-${id}">${formatCountdown(msUntil)}</span>
       </div>
       <button class="notif-close notif-close-btn">Close</button>
     `);
 
-    if (msUntil > 0) {
-      countdownInterval = setInterval(() => {
-        const el = document.getElementById("notif-start-countdown");
-        if (!el) { clearInterval(countdownInterval); return; }
-        const remaining = plan.start_ts_ms - Date.now();
-        el.textContent = remaining > 0 ? formatCountdown(remaining) : "Start now!";
-        if (remaining <= 0) clearInterval(countdownInterval);
-      }, 1000);
-    }
+    interval = setInterval(() => {
+      const el = document.getElementById(`ncd-${id}`);
+      if (!el) { clearInterval(interval); return; }
+      const r = plan.start_ts_ms - Date.now();
+      el.textContent = r > 0 ? formatCountdown(r) : "Start now!";
+      if (r <= 0) clearInterval(interval);
+    }, 1000);
+
+    if (plans[id]) plans[id].countdownInterval = interval;
   }
 
-  function showDropReminder(plan) {
-    const pop = _makePopup("notif-drop", `
+  // ── Show drop reminder popup ───────────────────────────────────────────────
+
+  function _showDropPopup(id, name, plan) {
+    _makePopup(_dropPopupId(id), `
       <div class="notif-header notif-header-urgent">
         <span class="notif-icon">⚡</span>
-        <span class="notif-title">Drop Your Delay in 5 Minutes!</span>
+        <span class="notif-title">Drop in 5 min — ${name}</span>
         <button class="notif-close">✕</button>
       </div>
       <div class="notif-drop-body">
         <div class="notif-drop-time">At: <strong>${plan.drop_time_display}</strong></div>
         <div class="notif-drop-change">
-          Change delay to:
-          <span class="notif-drop-delay">${plan.final_delay_label}</span>
+          Change delay to: <span class="notif-drop-delay">${plan.final_delay_label}</span>
         </div>
         <div class="notif-drop-note">
-          The next refresh after this drop hits <strong>${plan.queue_time_display}</strong> exactly.
+          Next refresh after drop hits <strong>${plan.queue_time_display}</strong> exactly.
         </div>
       </div>
       <button class="notif-close notif-close-btn notif-got-it">Got It</button>
-    `);
-    pop.classList.add("notif-urgent");
+    `, true);
   }
 
-  function schedule(plan) {
-    clearAll();
+  // ── Activate ───────────────────────────────────────────────────────────────
 
+  function activate(name, plan) {
+    const id = `plan-${Date.now()}`;
     const now = Date.now();
-    const msUntilStart = plan.start_ts_ms - now;
+    const timers = [];
+
     const msUntilDropReminder = plan.drop_ts_ms - (5 * 60 * 1000) - now;
 
-    // Always show the start overview popup immediately
-    showStartReminder(plan);
-
-    // Schedule the drop reminder
     if (msUntilDropReminder > 0) {
-      timers.push(setTimeout(() => showDropReminder(plan), msUntilDropReminder));
+      timers.push(setTimeout(() => _showDropPopup(id, name, plan), msUntilDropReminder));
     } else if (plan.drop_ts_ms - now > 0) {
-      // Already within 5 min of drop — show immediately
-      showDropReminder(plan);
+      // Already inside the 5-min window
+      _showDropPopup(id, name, plan);
     }
 
-    // Also try native browser notification as a backup
-    _tryNativeNotification(plan, msUntilStart, msUntilDropReminder);
+    // Auto-remove after queue goes live
+    const msUntilLive = plan.queue_ts_ms - now;
+    if (msUntilLive > 0) {
+      timers.push(setTimeout(() => { cancel(id, true); }, msUntilLive + 5000));
+    }
+
+    plans[id] = { name, plan, timers, countdownInterval: null };
+    _refreshPanel();
+    _showStartPopup(id, name, plan);
+    _tryNative(name, plan, msUntilDropReminder);
+
+    return id;
   }
 
-  function _tryNativeNotification(plan, msUntilStart, msUntilDropReminder) {
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+
+  function cancel(id, silent = false) {
+    const entry = plans[id];
+    if (!entry) return;
+
+    entry.timers.forEach(clearTimeout);
+    if (entry.countdownInterval) clearInterval(entry.countdownInterval);
+
+    [_popupId(id), _dropPopupId(id)].forEach(pid => {
+      const el = document.getElementById(pid);
+      if (el) { el.classList.remove("notif-visible"); setTimeout(() => el.remove(), 300); }
+    });
+
+    delete plans[id];
+    _refreshPanel();
+
+    if (!silent) {
+      _makePopup(`notif-cancel-${Date.now()}`, `
+        <div class="notif-header">
+          <span class="notif-icon">🚫</span>
+          <span class="notif-title">Plan Cancelled</span>
+          <button class="notif-close">✕</button>
+        </div>
+        <p style="margin:0.5rem 0;color:var(--muted);font-size:0.88rem;">
+          <strong>${entry.name}</strong> has been cancelled. All reminders cleared.
+        </p>
+        <button class="notif-close notif-close-btn">Close</button>
+      `);
+      setTimeout(() => {
+        const el = document.getElementById(`notif-cancel-${Date.now() - 100}`);
+        if (el) el.remove();
+      }, 4000);
+    }
+  }
+
+  function cancelAll() {
+    [...Object.keys(plans)].forEach(id => cancel(id, true));
+    _makePopup("notif-cancel-all", `
+      <div class="notif-header">
+        <span class="notif-icon">🚫</span>
+        <span class="notif-title">All Plans Cancelled</span>
+        <button class="notif-close">✕</button>
+      </div>
+      <p style="margin:0.5rem 0;color:var(--muted);font-size:0.88rem;">
+        All active plans and reminders have been cleared.
+      </p>
+      <button class="notif-close notif-close-btn">Close</button>
+    `);
+  }
+
+  // ── Native notifications ───────────────────────────────────────────────────
+
+  function _tryNative(name, plan, msUntilDropReminder) {
     if (!("Notification" in window)) return;
     Notification.requestPermission().then(perm => {
       if (perm !== "granted") return;
-      const startMsg = msUntilStart > 0
-        ? `Start in ${formatCountdown(msUntilStart)}: set delay to ${plan.start_delay_label}`
-        : `Start now: set delay to ${plan.start_delay_label}`;
-      new Notification("Walmart Queue Optimizer", { body: startMsg, tag: "wq-start" });
-
+      const msUntilStart = plan.start_ts_ms - Date.now();
+      new Notification(`🎯 ${name} — Plan Active`, {
+        body: `Start at ${plan.start_time_display} with ${plan.start_delay_label}`,
+        tag: `wq-start-${Date.now()}`,
+      });
       if (msUntilDropReminder > 0) {
-        timers.push(setTimeout(() => {
-          new Notification("⚡ Drop your delay!", {
-            body: `At ${plan.drop_time_display} — change to ${plan.final_delay_label}`,
-            tag: "wq-drop",
+        setTimeout(() => {
+          new Notification(`⚡ ${name} — Drop in 5 min!`, {
+            body: `At ${plan.drop_time_display} → change to ${plan.final_delay_label}`,
+            tag: `wq-drop-${Date.now()}`,
           });
-        }, msUntilDropReminder));
+        }, msUntilDropReminder);
       }
     });
   }
 
-  return { schedule, clearAll };
+  return { activate, cancel, cancelAll };
 })();
+
+cancelAllBtn.addEventListener("click", () => PM.cancelAll());
+
+// ── Name-input overlay (shared for preset cards and custom plan) ──────────────
+
+function showNameInput({ anchorEl, defaultName: defName, onActivate }) {
+  // Remove any existing overlays
+  document.querySelectorAll(".name-overlay").forEach(e => e.remove());
+
+  const overlay = document.createElement("div");
+  overlay.className = "name-overlay";
+  overlay.innerHTML = `
+    <label class="name-overlay-label">Name this plan <small>(optional)</small></label>
+    <div class="name-overlay-row">
+      <input class="name-overlay-input" type="text" placeholder="${defName}" maxlength="30">
+      <button class="name-overlay-activate" type="button">Activate &amp; Set Alerts</button>
+      <button class="name-overlay-cancel" type="button">✕</button>
+    </div>
+  `;
+  anchorEl.appendChild(overlay);
+  const input = overlay.querySelector(".name-overlay-input");
+  input.focus();
+
+  overlay.querySelector(".name-overlay-activate").addEventListener("click", () => {
+    const name = input.value.trim() || defName;
+    overlay.remove();
+    onActivate(name);
+  });
+  overlay.querySelector(".name-overlay-cancel").addEventListener("click", () => overlay.remove());
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") overlay.querySelector(".name-overlay-activate").click();
+    if (e.key === "Escape") overlay.remove();
+  });
+}
 
 // ── Preset cards ──────────────────────────────────────────────────────────────
 
@@ -218,9 +374,7 @@ function renderPresets(data) {
             <div class="pc-sub">${p.refreshes_phase1} refreshes until drop</div>
           </div>
         </div>
-
         <div class="pc-arrow">↓</div>
-
         <div class="pc-step pc-drop">
           <div class="pc-step-num">2</div>
           <div class="pc-step-info">
@@ -230,9 +384,7 @@ function renderPresets(data) {
             <div class="pc-sub">${p.refreshes_phase2} refreshes → queue live</div>
           </div>
         </div>
-
         <div class="pc-arrow">↓</div>
-
         <div class="pc-live">
           <span class="pc-live-dot"></span>
           <span>${p.queue_time_display} — QUEUE LIVE</span>
@@ -241,20 +393,35 @@ function renderPresets(data) {
 
       <div class="pc-btn-row">
         <button class="pc-select-btn" type="button">Use This Plan</button>
-        <button class="pc-demo-btn" type="button">▶ Watch Demo</button>
+        <button class="pc-demo-btn"   type="button">▶ Watch Demo</button>
       </div>
     </div>
   `).join("");
 
-  presetGridEl.querySelectorAll(".preset-card").forEach((card) => {
-    card.querySelector(".pc-select-btn").addEventListener("click", (e) => {
+  presetGridEl.querySelectorAll(".preset-card").forEach(card => {
+    const idx = parseInt(card.dataset.idx, 10);
+    const p = data.plans[idx];
+
+    card.querySelector(".pc-select-btn").addEventListener("click", e => {
       e.stopPropagation();
-      selectPreset(card, data.plans);
+      // Fill form first
+      startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
+      initialDelayEl.value = p.start_delay_ms;
+      presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+      if (!demoModeEl.checked) runOptimize();
+
+      // Show name input anchored to this card's button row
+      const btnRow = card.querySelector(".pc-btn-row");
+      showNameInput({
+        anchorEl: card,
+        defaultName: defaultName(),
+        onActivate: name => PM.activate(name, p),
+      });
     });
-    card.querySelector(".pc-demo-btn").addEventListener("click", (e) => {
+
+    card.querySelector(".pc-demo-btn").addEventListener("click", e => {
       e.stopPropagation();
-      const idx = parseInt(card.dataset.idx, 10);
-      const p = data.plans[idx];
       const params = new URLSearchParams({
         timezone: timezoneEl.value,
         final_delay: String(p.final_delay_ms),
@@ -262,26 +429,17 @@ function renderPresets(data) {
       });
       window.open(`/demo-live?${params.toString()}`, "_blank");
     });
-    card.addEventListener("click", (e) => {
-      if (!e.target.closest("button")) selectPreset(card, data.plans);
+
+    card.addEventListener("click", e => {
+      if (!e.target.closest("button") && !e.target.closest(".name-overlay")) {
+        startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
+        initialDelayEl.value = p.start_delay_ms;
+        presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
+        card.classList.add("selected");
+        if (!demoModeEl.checked) runOptimize();
+      }
     });
   });
-}
-
-function selectPreset(card, plans) {
-  const idx = parseInt(card.dataset.idx, 10);
-  const p = plans[idx];
-
-  startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
-  initialDelayEl.value = p.start_delay_ms;
-
-  presetGridEl.querySelectorAll(".preset-card").forEach((c) => c.classList.remove("selected"));
-  card.classList.add("selected");
-
-  if (!demoModeEl.checked) {
-    runOptimize();
-    NM.schedule(p);
-  }
 }
 
 async function loadPresets() {
@@ -346,20 +504,22 @@ function renderResults(data) {
           <p>Change delay to <span class="highlight">${s2.delay_label}</span></p>
           <small>${s2.refreshes_until_next} refreshes → queue live</small>
         </div>
-        <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+        <div class="custom-alert-area" id="custom-alert-area">
+          <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+        </div>
       </div>
     `;
 
-    // Custom plan alert button: two-tap flow
+    let alertStep = 0;
     const alertBtn = document.getElementById("custom-alert-btn");
-    let step = 0;
+    const alertArea = document.getElementById("custom-alert-area");
+
     alertBtn.addEventListener("click", () => {
-      if (step === 0) {
-        step = 1;
+      if (alertStep === 0) {
+        alertStep = 1;
         alertBtn.textContent = "Send Live Alerts";
         alertBtn.classList.add("custom-alert-btn-ready");
       } else {
-        // Build a plan-like object from the custom schedule
         const customPlan = {
           label: "Custom Plan",
           start_delay_label: s1.delay_label,
@@ -369,17 +529,23 @@ function renderResults(data) {
           queue_time_display: data.queue_live,
           start_ts_ms: s1.at_ts_ms,
           drop_ts_ms: s2.at_ts_ms,
-          queue_ts_ms: data.drop_schedule[data.drop_schedule.length - 1]?.at_ts_ms || 0,
+          queue_ts_ms: data.drop_schedule.at(-1)?.at_ts_ms || 0,
         };
-        NM.schedule(customPlan);
-        alertBtn.textContent = "✓ Alerts Active";
-        alertBtn.classList.add("custom-alert-btn-active");
-        alertBtn.disabled = true;
+        showNameInput({
+          anchorEl: alertArea,
+          defaultName: defaultName(),
+          onActivate: name => {
+            PM.activate(name, customPlan);
+            alertBtn.textContent = "✓ Alerts Active";
+            alertBtn.classList.add("custom-alert-btn-active");
+            alertBtn.disabled = true;
+          },
+        });
       }
     });
   }
 
-  dropTableBody.innerHTML = data.drop_schedule.map((step, i) => `
+  dropTableBody.innerHTML = data.drop_schedule.map((step) => `
     <tr class="${step.is_start ? "start-row" : "drop-row"}">
       <td>${step.is_start ? "1 · Start" : "2 · Drop once"}</td>
       <td>${step.is_start ? "START NOW" : step.at}</td>
@@ -387,7 +553,7 @@ function renderResults(data) {
       <td>${step.delay_label}</td>
     </tr>`).join("");
 
-  finalRefreshesEl.innerHTML = data.final_refreshes.map((r) =>
+  finalRefreshesEl.innerHTML = data.final_refreshes.map(r =>
     `<li class="${r.is_queue_live ? "live" : ""}">${r.time}${r.is_queue_live ? " ← QUEUE LIVE" : ""}</li>`
   ).join("");
 }
@@ -426,7 +592,6 @@ delayPresetEl.addEventListener("change", () => {
 timezoneEl.addEventListener("change", () => {
   loadPresets();
   resultsPanelEl.hidden = true;
-  NM.clearAll();
 });
 
 optimizeBtn.addEventListener("click", () => {

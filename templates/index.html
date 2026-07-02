@@ -37,6 +37,18 @@
       </div>
     </div>
 
+    <!-- Active Plans panel — shown dynamically when plans are running -->
+    <section class="panel active-plans-section" id="active-plans-section" hidden>
+      <div class="active-plans-header">
+        <div>
+          <h2>Active Plans <span id="active-plans-count" class="ap-count">0</span></h2>
+          <p class="hint">Notifications are scheduled. You'll be alerted before each drop.</p>
+        </div>
+        <button class="ap-cancel-all-btn" id="cancel-all-btn" type="button">Cancel All</button>
+      </div>
+      <div id="active-plans-list" class="active-plans-list"></div>
+    </section>
+
     <!-- Preset plan cards -->
     <section class="preset-section">
       <div class="preset-header">
