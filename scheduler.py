@@ -1,0 +1,760 @@
+"""Core logic for Walmart queue refresh delay scheduling."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Iterable
+from zoneinfo import ZoneInfo
+
+DEFAULT_QUEUE_HOUR = 20  # 8:00 PM
+DEFAULT_QUEUE_MINUTE = 0
+DEFAULT_QUEUE_SECOND = 0
+
+TIMEZONES: dict[str, ZoneInfo] = {
+    "CDT": ZoneInfo("America/Chicago"),
+    "EST": ZoneInfo("America/New_York"),
+    "PT": ZoneInfo("America/Los_Angeles"),
+}
+
+TIMEZONE_LABELS: dict[str, str] = {
+    "CDT": "Central (CDT/CST)",
+    "EST": "Eastern (EST/EDT)",
+    "PT": "Pacific (PT)",
+}
+
+# Backward-compatible alias.
+CENTRAL = TIMEZONES["CDT"]
+
+# Common automation delay values (ms), highest to lowest.
+PREFERRED_DELAYS_MS = [
+    120_000,
+    90_000,
+    60_000,
+    45_000,
+    30_000,
+    20_000,
+    15_000,
+    10_000,
+    8_000,
+    5_000,
+    3_000,
+    2_000,
+    1_500,
+    1_000,
+    800,
+    500,
+    250,
+]
+
+STARTER_DELAY_OPTIONS_MS = [
+    120_000,
+    90_000,
+    60_000,
+    45_000,
+    30_000,
+    20_000,
+    15_000,
+    10_000,
+    5_000,
+]
+
+DEFAULT_SWITCH_MINUTES_CANDIDATES = [10, 8, 7, 6, 5, 4, 3, 2]
+
+# Preferred final-phase delays (ms) — picked for the single pre-queue drop.
+FINAL_DELAY_PREFERENCES = [5_000, 3_000, 2_000, 1_500, 1_000, 800, 500]
+
+# Cards are organized by target final delay, each gets the best start window.
+# (final_delay_ms, label, description, preferred_start_windows_min)
+PRESET_BY_FINAL_DELAY: list[tuple[int, str, str, list[int]]] = [
+    (5_000,  "Drop to 5,000 ms",  "Most proxy-safe — low hit rate, ideal for long early starts", [120, 90, 60, 45]),
+    (3_000,  "Drop to 3,000 ms",  "Great balance — proxy-friendly, very reliable timing",        [90, 60, 45, 30]),
+    (2_000,  "Drop to 2,000 ms",  "Solid choice — strong refresh rate near queue time",          [60, 45, 30]),
+    (1_500,  "Drop to 1,500 ms",  "High precision — tight refresh, popular for Pokemon drops",   [60, 45, 30]),
+    (1_000,  "Drop to 1,000 ms",  "Ultra-precise — maximum accuracy at queue go-live",           [45, 30, 60]),
+]
+
+# All start windows to search (minutes before queue, label).
+ALL_START_WINDOWS: list[tuple[int, str]] = [
+    (120, "2 hours early"),
+    (90,  "1.5 hours early"),
+    (75,  "1 hr 15 min early"),
+    (60,  "1 hour early"),
+    (45,  "45 min early"),
+    (30,  "30 min early"),
+]
+
+# Preferred starting delays to try per preset, largest first.
+PRESET_START_DELAY_PREFERENCES = [120_000, 90_000, 60_000, 45_000, 30_000, 20_000, 15_000, 10_000, 5_000]
+
+
+@dataclass(frozen=True)
+class PresetPlan:
+    """A fully resolved 2-step plan organized by target final delay."""
+    label: str
+    description: str
+    minutes_early: float
+    start_window_label: str
+    start_delay_ms: int
+    drop_minutes_before: float
+    final_delay_ms: int
+    verified: bool
+    start_time_display: str
+    drop_time_display: str
+    queue_time_display: str
+    start_delay_label: str
+    final_delay_label: str
+    drop_minutes_label: str
+    refreshes_phase1: int
+    refreshes_phase2: int
+    start_h: int
+    start_m: int
+    start_s: int
+    start_ts_ms: int   # Unix timestamp ms for task start
+    drop_ts_ms: int    # Unix timestamp ms for delay drop
+    queue_ts_ms: int   # Unix timestamp ms for queue go-live
+
+
+@dataclass(frozen=True)
+class DelayStep:
+    """One point in the schedule where the automation delay should change."""
+
+    at: datetime
+    minutes_before: float
+    delay_ms: int
+    refreshes_until_next: int | None
+    segment_ms: int
+    aligned: bool
+
+
+@dataclass(frozen=True)
+class StartDelayOption:
+    delay_ms: int
+    aligns_to_queue: bool
+    switch_minutes_before: float | None
+    final_delay_ms: int | None
+    refreshes_until_queue: int
+    label: str
+
+
+@dataclass(frozen=True)
+class Schedule:
+    target: datetime
+    start: datetime
+    steps: list[DelayStep]
+    final_refresh_times: list[datetime]
+    timezone_key: str = "CDT"
+
+    @property
+    def hits_target_exactly(self) -> bool:
+        if not self.final_refresh_times:
+            return False
+        return self.final_refresh_times[-1] == self.target
+
+
+def get_timezone(key: str) -> ZoneInfo:
+    normalized = key.upper()
+    if normalized not in TIMEZONES:
+        raise ValueError(f"Unknown timezone '{key}'. Choose from: {', '.join(TIMEZONES)}")
+    return TIMEZONES[normalized]
+
+
+def next_walmart_queue_time(
+    *,
+    now: datetime | None = None,
+    tz_key: str = "CDT",
+    hour: int = DEFAULT_QUEUE_HOUR,
+    minute: int = DEFAULT_QUEUE_MINUTE,
+    second: int = DEFAULT_QUEUE_SECOND,
+) -> datetime:
+    """
+    Return the next Wednesday Walmart queue go-live.
+
+    The event ALWAYS fires at `hour` o'clock **Central Time** (Walmart's timezone),
+    regardless of `tz_key`.  The returned datetime is in Central Time so that
+    arithmetic is consistent; display code converts to the user's tz.
+    """
+    central = TIMEZONES["CDT"]  # America/Chicago — the authoritative timezone
+    tz = get_timezone(tz_key)
+
+    # Anchor "now" in Central so weekday and hour comparisons are correct.
+    now_central = _ensure_tz(now or datetime.now(tz), central)
+
+    candidate = now_central.replace(
+        hour=hour, minute=minute, second=second, microsecond=0
+    )
+    days_ahead = (2 - candidate.weekday()) % 7   # Wednesday = 2
+    if days_ahead == 0 and candidate <= now_central:
+        days_ahead = 7
+    return candidate + timedelta(days=days_ahead)
+
+
+def create_demo_target(
+    *,
+    minutes_from_now: float = 5.0,
+    now: datetime | None = None,
+    tz_key: str = "CDT",
+) -> datetime:
+    """Build a demo queue time a few minutes from now for testing alignment."""
+    tz = get_timezone(tz_key)
+    now = _ensure_tz(now or datetime.now(tz), tz)
+    seconds = int(minutes_from_now * 60)
+    return (now + timedelta(seconds=seconds)).replace(microsecond=0)
+
+
+def _ensure_tz(dt: datetime, tz: ZoneInfo) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=tz)
+    return dt.astimezone(tz)
+
+
+def _ensure_central(dt: datetime) -> datetime:
+    return _ensure_tz(dt, CENTRAL)
+
+
+def find_aligned_delay(
+    remaining_ms: int,
+    *,
+    max_delay: int,
+    min_delay: int = 250,
+    preferred: Iterable[int] = PREFERRED_DELAYS_MS,
+) -> tuple[int, bool]:
+    if remaining_ms <= 0:
+        return min_delay, True
+
+    for delay in preferred:
+        if delay > max_delay or delay < min_delay:
+            continue
+        if remaining_ms % delay == 0:
+            return delay, True
+
+    if remaining_ms >= min_delay:
+        return remaining_ms, False
+
+    return min_delay, remaining_ms % min_delay == 0
+
+
+def find_final_delay(
+    remaining_ms: int,
+    *,
+    min_delay: int = 250,
+    preferred: Iterable[int] = FINAL_DELAY_PREFERENCES,
+) -> tuple[int, bool]:
+    """Pick a final-phase delay so remaining time hits queue go-live exactly."""
+    if remaining_ms <= 0:
+        return min_delay, True
+
+    for delay in preferred:
+        if delay < min_delay or delay > remaining_ms:
+            continue
+        if remaining_ms % delay == 0:
+            return delay, True
+
+    for delay in PREFERRED_DELAYS_MS:
+        if delay < min_delay or delay > remaining_ms:
+            continue
+        if remaining_ms % delay == 0:
+            return delay, True
+
+    if remaining_ms >= min_delay:
+        return remaining_ms, False
+
+    return min_delay, remaining_ms % min_delay == 0
+
+
+def _snap_switch_to_start_grid(start: datetime, ideal_switch: datetime, initial_delay_ms: int) -> datetime | None:
+    """Move switch time to the last start-delay refresh on or before ideal_switch."""
+    phase1_ms = int((ideal_switch - start).total_seconds() * 1000)
+    if phase1_ms < initial_delay_ms:
+        return None
+    n = phase1_ms // initial_delay_ms
+    return start + timedelta(milliseconds=n * initial_delay_ms)
+
+
+def build_two_step_schedule(
+    *,
+    target: datetime,
+    start: datetime,
+    initial_delay_ms: int,
+    switch_minutes_before: float | None = None,
+    min_delay_ms: int = 250,
+) -> list[DelayStep]:
+    """
+    Build exactly two delay steps:
+      1. Starting delay from task start until one switch point
+      2. Final delay from switch point until queue go-live (exact refresh)
+    """
+    if initial_delay_ms < min_delay_ms:
+        raise ValueError(f"Initial delay must be at least {min_delay_ms} ms.")
+
+    candidates = (
+        [switch_minutes_before]
+        if switch_minutes_before is not None
+        else DEFAULT_SWITCH_MINUTES_CANDIDATES
+    )
+
+    best: tuple[datetime, int, int, float, float] | None = None
+
+    for switch_min in sorted(candidates, reverse=True):
+        if switch_min <= 0:
+            continue
+        ideal_switch = target - timedelta(minutes=switch_min)
+        if ideal_switch <= start:
+            continue
+
+        switch_at = _snap_switch_to_start_grid(start, ideal_switch, initial_delay_ms)
+        if switch_at is None or switch_at >= target:
+            continue
+
+        phase1_ms = int((switch_at - start).total_seconds() * 1000)
+        phase2_ms = int((target - switch_at).total_seconds() * 1000)
+        if phase2_ms < min_delay_ms:
+            continue
+
+        final_delay_ms, final_aligned = find_final_delay(phase2_ms, min_delay=min_delay_ms)
+        if not final_aligned:
+            continue
+
+        phase1_aligned = phase1_ms % initial_delay_ms == 0
+        if not phase1_aligned:
+            continue
+
+        actual_switch_min = phase2_ms / 60_000
+        refreshes_phase1 = phase1_ms // initial_delay_ms
+        score = actual_switch_min
+        if best is None or score > best[3]:
+            best = (switch_at, final_delay_ms, refreshes_phase1, actual_switch_min, switch_min)
+
+    if best is None:
+        raise ValueError(
+            "Could not build a two-step schedule with this start time and delay. "
+            "Try a different starting delay (see recommended options)."
+        )
+
+    switch_at, final_delay_ms, refreshes_phase1, actual_switch_min, _ = best
+    phase1_ms = int((switch_at - start).total_seconds() * 1000)
+    phase2_ms = int((target - switch_at).total_seconds() * 1000)
+    refreshes_phase2 = phase2_ms // final_delay_ms
+
+    start_minutes_before = (target - start).total_seconds() / 60
+    switch_minutes_before_val = (target - switch_at).total_seconds() / 60
+
+    return [
+        DelayStep(
+            at=start,
+            minutes_before=start_minutes_before,
+            delay_ms=initial_delay_ms,
+            refreshes_until_next=refreshes_phase1,
+            segment_ms=phase1_ms,
+            aligned=True,
+        ),
+        DelayStep(
+            at=switch_at,
+            minutes_before=switch_minutes_before_val,
+            delay_ms=final_delay_ms,
+            refreshes_until_next=refreshes_phase2,
+            segment_ms=phase2_ms,
+            aligned=True,
+        ),
+    ]
+
+
+def recommended_start_delays(
+    *,
+    target: datetime,
+    start: datetime,
+    tz_key: str = "CDT",
+    switch_minutes_before: float | None = None,
+) -> list[StartDelayOption]:
+    """Return starting delays that work with a single pre-queue drop."""
+    tz = get_timezone(tz_key)
+    target = _ensure_tz(target, tz)
+    start = _ensure_tz(start, tz)
+
+    options: list[StartDelayOption] = []
+    for delay in STARTER_DELAY_OPTIONS_MS:
+        try:
+            steps = build_two_step_schedule(
+                target=target,
+                start=start,
+                initial_delay_ms=delay,
+                switch_minutes_before=switch_minutes_before,
+            )
+        except ValueError:
+            continue
+
+        switch_min = steps[1].minutes_before
+        final_delay = steps[1].delay_ms
+        total_refreshes = (steps[0].refreshes_until_next or 0) + (steps[1].refreshes_until_next or 0)
+        label = (
+            f"{format_duration_ms(delay)} start → drop at "
+            f"{format_minutes_before(switch_min)} before → "
+            f"{format_duration_ms(final_delay)} until live"
+        )
+        options.append(
+            StartDelayOption(
+                delay_ms=delay,
+                aligns_to_queue=True,
+                switch_minutes_before=switch_min,
+                final_delay_ms=final_delay,
+                refreshes_until_queue=total_refreshes,
+                label=label,
+            )
+        )
+    return options
+
+
+def build_schedule(
+    *,
+    target: datetime,
+    start: datetime | None = None,
+    min_delay_ms: int = 250,
+    tz_key: str = "CDT",
+    initial_delay_ms: int | None = None,
+    switch_minutes_before: float | None = None,
+    **_kwargs,
+) -> Schedule:
+    """Build a simple two-delay schedule: start delay + one drop before queue live."""
+    tz = get_timezone(tz_key)
+    target = _ensure_tz(target, tz)
+    start = _ensure_tz(start or datetime.now(tz), tz)
+
+    if (target - start).total_seconds() <= 0:
+        raise ValueError("Start time must be before queue go-live.")
+
+    delay = initial_delay_ms if initial_delay_ms is not None else 60_000
+    steps = build_two_step_schedule(
+        target=target,
+        start=start,
+        initial_delay_ms=delay,
+        switch_minutes_before=switch_minutes_before,
+        min_delay_ms=min_delay_ms,
+    )
+
+    final_refresh_times = _simulate_refreshes(steps, target)
+    return Schedule(
+        target=target,
+        start=start,
+        steps=steps,
+        final_refresh_times=final_refresh_times,
+        timezone_key=tz_key.upper(),
+    )
+
+
+def _simulate_refreshes(steps: list[DelayStep], target: datetime) -> list[datetime]:
+    if not steps:
+        return []
+
+    times: list[datetime] = []
+    for i, step in enumerate(steps):
+        end = steps[i + 1].at if i + 1 < len(steps) else target
+        t = step.at + timedelta(milliseconds=step.delay_ms)
+        while t <= end + timedelta(microseconds=1):
+            times.append(t)
+            t += timedelta(milliseconds=step.delay_ms)
+    return times
+
+
+def format_duration_ms(ms: int) -> str:
+    if ms >= 60_000:
+        return f"{ms / 60_000:.1f} min ({ms:,} ms)"
+    if ms >= 1_000:
+        return f"{ms / 1_000:.1f} sec ({ms:,} ms)"
+    return f"{ms} ms"
+
+
+def format_minutes_before(minutes: float) -> str:
+    if minutes >= 1:
+        if minutes == int(minutes):
+            return f"{int(minutes)} min"
+        return f"{minutes:.1f} min"
+    seconds = minutes * 60
+    if seconds == int(seconds):
+        return f"{int(seconds)} sec"
+    return f"{seconds:.1f} sec"
+
+
+def preset_schedules(
+    *,
+    target: datetime,
+    tz_key: str = "CDT",
+) -> list[PresetPlan]:
+    """
+    Compute the best 2-step plan for each target final delay.
+    For each desired final drop delay, searches across start windows and
+    starting delays to find the plan with:
+      1. Latest possible switch (drop as late as possible)
+      2. Largest safe starting delay (most proxy-friendly)
+    """
+    tz = get_timezone(tz_key)
+    target = _ensure_tz(target, tz)
+    plans: list[PresetPlan] = []
+
+    def _fmt_clock(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+
+    for final_delay_ms, label, description, preferred_windows in PRESET_BY_FINAL_DELAY:
+        # Build a prioritised list of start windows: preferred ones first, rest after.
+        window_order = list(dict.fromkeys(
+            preferred_windows + [w for w, _ in ALL_START_WINDOWS]
+        ))
+        window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
+
+        best_steps: list[DelayStep] | None = None
+        best_window: int = 0
+        best_start_delay: int = 0
+
+        for window_min in window_order:
+            start = target - timedelta(minutes=window_min)
+            for start_delay in PRESET_START_DELAY_PREFERENCES:
+                if start_delay >= window_min * 60 * 1000:
+                    continue
+                # Only accept plans that land on our target final delay.
+                try:
+                    steps = _find_two_step_with_final_delay(
+                        target=target,
+                        start=start,
+                        initial_delay_ms=start_delay,
+                        target_final_delay_ms=final_delay_ms,
+                    )
+                except ValueError:
+                    continue
+                if steps is not None:
+                    best_steps = steps
+                    best_window = window_min
+                    best_start_delay = start_delay
+                    break
+            if best_steps is not None:
+                break
+
+        if best_steps is None or len(best_steps) < 2:
+            continue
+
+        s1, s2 = best_steps[0], best_steps[1]
+        window_label = window_labels.get(best_window, f"{best_window} min early")
+        plans.append(
+            PresetPlan(
+                label=label,
+                description=description,
+                minutes_early=best_window,
+                start_window_label=window_label,
+                start_delay_ms=s1.delay_ms,
+                drop_minutes_before=s2.minutes_before,
+                final_delay_ms=s2.delay_ms,
+                verified=True,
+                start_time_display=_fmt_clock(s1.at),
+                drop_time_display=_fmt_clock(s2.at),
+                queue_time_display=_fmt_clock(target),
+                start_delay_label=format_duration_ms(s1.delay_ms),
+                final_delay_label=format_duration_ms(s2.delay_ms),
+                drop_minutes_label=format_minutes_before(s2.minutes_before),
+                refreshes_phase1=s1.refreshes_until_next or 0,
+                refreshes_phase2=s2.refreshes_until_next or 0,
+                start_h=s1.at.astimezone(tz).hour,
+                start_m=s1.at.astimezone(tz).minute,
+                start_s=s1.at.astimezone(tz).second,
+                start_ts_ms=int(s1.at.timestamp() * 1000),
+                drop_ts_ms=int(s2.at.timestamp() * 1000),
+                queue_ts_ms=int(target.timestamp() * 1000),
+            )
+        )
+    return plans
+
+
+def _find_two_step_with_final_delay(
+    *,
+    target: datetime,
+    start: datetime,
+    initial_delay_ms: int,
+    target_final_delay_ms: int,
+    min_delay_ms: int = 250,
+) -> list[DelayStep] | None:
+    """
+    Build a two-step schedule where the second step uses exactly target_final_delay_ms.
+    Searches switch windows from latest (10 min) to earliest (2 min).
+    Returns None if no exact alignment is found.
+    """
+    for switch_min in DEFAULT_SWITCH_MINUTES_CANDIDATES:
+        ideal_switch = target - timedelta(minutes=switch_min)
+        if ideal_switch <= start:
+            continue
+        switch_at = _snap_switch_to_start_grid(start, ideal_switch, initial_delay_ms)
+        if switch_at is None or switch_at >= target:
+            continue
+
+        phase1_ms = int((switch_at - start).total_seconds() * 1000)
+        phase2_ms = int((target - switch_at).total_seconds() * 1000)
+
+        if phase2_ms < target_final_delay_ms:
+            continue
+        if phase2_ms % target_final_delay_ms != 0:
+            continue
+        if phase1_ms % initial_delay_ms != 0:
+            continue
+
+        refreshes_phase2 = phase2_ms // target_final_delay_ms
+        refreshes_phase1 = phase1_ms // initial_delay_ms
+        start_minutes_before = (target - start).total_seconds() / 60
+        switch_minutes_before = phase2_ms / 60_000
+
+        return [
+            DelayStep(
+                at=start,
+                minutes_before=start_minutes_before,
+                delay_ms=initial_delay_ms,
+                refreshes_until_next=refreshes_phase1,
+                segment_ms=phase1_ms,
+                aligned=True,
+            ),
+            DelayStep(
+                at=switch_at,
+                minutes_before=switch_minutes_before,
+                delay_ms=target_final_delay_ms,
+                refreshes_until_next=refreshes_phase2,
+                segment_ms=phase2_ms,
+                aligned=True,
+            ),
+        ]
+    return None
+
+
+def schedule_to_dict(schedule: Schedule) -> dict:
+    tz = get_timezone(schedule.timezone_key)
+
+    def fmt(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return local.strftime("%I:%M:%S.%f")[:-3] + f" {local.strftime('%p')} {local.tzname()}"
+
+    def fmt_full(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return (
+            local.strftime("%A, %B %d, %Y at %I:%M:%S.%f")[:-3]
+            + f" {local.strftime('%p')} {local.tzname()}"
+        )
+
+    return {
+        "timezone": schedule.timezone_key,
+        "queue_live": fmt_full(schedule.target),
+        "start_time": fmt_full(schedule.start),
+        "hits_target_exactly": schedule.hits_target_exactly,
+        "two_step_only": True,
+        "starter_options": [
+            {
+                "delay_ms": o.delay_ms,
+                "aligns_to_queue": o.aligns_to_queue,
+                "switch_minutes_before": o.switch_minutes_before,
+                "final_delay_ms": o.final_delay_ms,
+                "refreshes_until_queue": o.refreshes_until_queue,
+                "label": o.label,
+            }
+            for o in recommended_start_delays(
+                target=schedule.target,
+                start=schedule.start,
+                tz_key=schedule.timezone_key,
+            )
+        ],
+        "drop_schedule": [
+            {
+                "is_start": i == 0,
+                "is_final_drop": i == 1,
+                "at": fmt(step.at),
+                "at_ts_ms": int(step.at.timestamp() * 1000),
+                "minutes_before": format_minutes_before(step.minutes_before),
+                "delay_ms": step.delay_ms,
+                "delay_label": format_duration_ms(step.delay_ms),
+                "refreshes_until_next": step.refreshes_until_next,
+                "aligned": step.aligned,
+            }
+            for i, step in enumerate(schedule.steps)
+        ],
+        "final_refreshes": [
+            {
+                "time": fmt(t),
+                "is_queue_live": t == schedule.target,
+            }
+            for t in schedule.final_refresh_times[-15:]
+        ],
+    }
+
+
+def schedule_to_live_demo(schedule: Schedule) -> dict:
+    """Serialize schedule with millisecond timestamps for live demo playback."""
+    base = schedule_to_dict(schedule)
+    tz = get_timezone(schedule.timezone_key)
+
+    def ts_ms(dt: datetime) -> int:
+        return int(dt.astimezone(tz).timestamp() * 1000)
+
+    base["target_ts"] = ts_ms(schedule.target)
+    base["start_ts"] = ts_ms(schedule.start)
+    base["server_now_ts"] = ts_ms(datetime.now(tz))
+    base["drop_schedule"] = [
+        {
+            **step,
+            "at_ts": ts_ms(schedule.steps[i].at),
+        }
+        for i, step in enumerate(base["drop_schedule"])
+    ]
+    base["all_refreshes"] = [
+        {
+            "time": fmt_refresh(t, tz),
+            "ts": ts_ms(t),
+            "is_queue_live": t == schedule.target,
+        }
+        for t in schedule.final_refresh_times
+    ]
+    return base
+
+
+def fmt_refresh(dt: datetime, tz: ZoneInfo) -> str:
+    local = dt.astimezone(tz)
+    return local.strftime("%I:%M:%S.%f")[:-3] + f" {local.strftime('%p')} {local.tzname()}"
+
+
+# Live demo uses the same two-step logic (start delay + one final drop).
+LIVE_DEMO_MINUTES = 3.0
+LIVE_DEMO_INITIAL_DELAY_MS = 15_000
+
+# Candidate starting delays tried (largest-first) when auto-sizing for demo window.
+_DEMO_START_DELAY_CANDIDATES = [30_000, 20_000, 15_000, 10_000, 8_000, 5_000, 3_000, 2_000]
+
+
+def best_delay_for_demo(
+    *,
+    demo_minutes: float = LIVE_DEMO_MINUTES,
+    target_final_delay_ms: int | None = None,
+) -> tuple[int, int | None]:
+    """
+    Return (start_delay_ms, final_delay_ms) that fit cleanly inside the demo window.
+    Tries to honour target_final_delay_ms when supplied (e.g. from a preset card).
+    Falls back gracefully if no exact match exists.
+    """
+    from datetime import timezone as _tz
+
+    dummy_target = datetime(2000, 1, 1, 0, 0, 0, tzinfo=_tz.utc) + timedelta(minutes=demo_minutes)
+    dummy_start  = datetime(2000, 1, 1, 0, 0, 0, tzinfo=_tz.utc)
+
+    for start_delay in _DEMO_START_DELAY_CANDIDATES:
+        if target_final_delay_ms is not None:
+            steps = _find_two_step_with_final_delay(
+                target=dummy_target,
+                start=dummy_start,
+                initial_delay_ms=start_delay,
+                target_final_delay_ms=target_final_delay_ms,
+            )
+            if steps is not None:
+                return start_delay, target_final_delay_ms
+        else:
+            try:
+                steps = build_two_step_schedule(
+                    target=dummy_target,
+                    start=dummy_start,
+                    initial_delay_ms=start_delay,
+                )
+                return start_delay, steps[1].delay_ms
+            except ValueError:
+                continue
+
+    # Last resort — default values known to work
+    return LIVE_DEMO_INITIAL_DELAY_MS, 5_000
