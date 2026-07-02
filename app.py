@@ -162,6 +162,9 @@ def preset_schedules_api():
                     "start_h": p.start_h,
                     "start_m": p.start_m,
                     "start_s": p.start_s,
+                    "start_ts_ms": p.start_ts_ms,
+                    "drop_ts_ms": p.drop_ts_ms,
+                    "queue_ts_ms": p.queue_ts_ms,
                 }
                 for p in plans
             ],

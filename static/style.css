@@ -9,6 +9,7 @@
   --success: #2ecc71;
   --warning: #f1c40f;
   --danger: #e74c3c;
+  --cyan: #06b6d4;
   --font: "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 
@@ -514,3 +515,215 @@ tr.drop-row  td { background: rgba(241,196,15,0.05); }
 .live-badge { background: var(--success) !important; animation: pulse 2s ease-in-out infinite; }
 
 @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+
+/* ── Notification popups ── */
+.notif-popup {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  width: 340px;
+  max-width: calc(100vw - 2.5rem);
+  background: #1a2332;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 1rem 1.15rem 1rem;
+  transform: translateX(110%);
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  font-size: 0.88rem;
+}
+
+.notif-visible { transform: translateX(0); }
+
+/* cyan flash for the urgent drop reminder */
+.notif-urgent {
+  border-color: var(--cyan);
+  animation: cyanFlash 2.5s ease-in-out 2;
+}
+
+@keyframes cyanFlash {
+  0%,100% { box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+  40%     { box-shadow: 0 0 0 4px rgba(6,182,212,0.25), 0 8px 32px rgba(0,0,0,0.4); }
+}
+
+.notif-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.notif-header-urgent { color: var(--cyan); }
+.notif-header-urgent .notif-title { color: var(--cyan); }
+
+.notif-icon { font-size: 1.15rem; }
+
+.notif-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  flex: 1;
+}
+
+.notif-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1;
+  margin-left: auto;
+}
+
+.notif-close:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+
+.notif-plan-badge {
+  display: inline-block;
+  background: rgba(0,113,206,0.2);
+  color: #60a5fa;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
+}
+
+.notif-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.notif-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  background: rgba(15,20,25,0.6);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+}
+
+.notif-step-dot {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.notif-step-dot.blue   { background: var(--accent); color: #fff; }
+.notif-step-dot.yellow { background: var(--warning); color: #111; }
+
+.notif-step-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.notif-step-time  { font-weight: 700; font-size: 0.9rem; margin: 0.1rem 0; }
+.notif-step-detail { font-size: 0.78rem; color: var(--muted); }
+
+.notif-countdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.6rem;
+  margin-bottom: 0.65rem;
+}
+
+.notif-countdown {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+
+.notif-close-btn {
+  width: 100%;
+  padding: 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.notif-close-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.notif-got-it { border-color: var(--cyan); color: var(--cyan); }
+.notif-got-it:hover { background: rgba(6,182,212,0.12); }
+
+/* urgent drop popup body */
+.notif-drop-body {
+  margin-bottom: 0.75rem;
+}
+
+.notif-drop-time {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.notif-drop-change {
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+}
+
+.notif-drop-delay {
+  background: rgba(241,196,15,0.18);
+  color: var(--warning);
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+}
+
+.notif-drop-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Custom alert button on results drop card ── */
+.custom-alert-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: 1px dashed var(--panel-border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  text-align: center;
+}
+
+.custom-alert-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.custom-alert-btn-ready {
+  border-color: var(--cyan) !important;
+  color: var(--cyan) !important;
+  border-style: solid !important;
+  background: rgba(6,182,212,0.08) !important;
+}
+
+.custom-alert-btn-active {
+  border-color: var(--success) !important;
+  color: var(--success) !important;
+  border-style: solid !important;
+  background: rgba(46,204,113,0.08) !important;
+  cursor: default !important;
+}

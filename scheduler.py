@@ -110,6 +110,9 @@ class PresetPlan:
     start_h: int
     start_m: int
     start_s: int
+    start_ts_ms: int   # Unix timestamp ms for task start
+    drop_ts_ms: int    # Unix timestamp ms for delay drop
+    queue_ts_ms: int   # Unix timestamp ms for queue go-live
 
 
 @dataclass(frozen=True)
@@ -551,6 +554,9 @@ def preset_schedules(
                 start_h=s1.at.astimezone(tz).hour,
                 start_m=s1.at.astimezone(tz).minute,
                 start_s=s1.at.astimezone(tz).second,
+                start_ts_ms=int(s1.at.timestamp() * 1000),
+                drop_ts_ms=int(s2.at.timestamp() * 1000),
+                queue_ts_ms=int(target.timestamp() * 1000),
             )
         )
     return plans
@@ -653,6 +659,7 @@ def schedule_to_dict(schedule: Schedule) -> dict:
                 "is_start": i == 0,
                 "is_final_drop": i == 1,
                 "at": fmt(step.at),
+                "at_ts_ms": int(step.at.timestamp() * 1000),
                 "minutes_before": format_minutes_before(step.minutes_before),
                 "delay_ms": step.delay_ms,
                 "delay_label": format_duration_ms(step.delay_ms),
