@@ -64,6 +64,41 @@ DEFAULT_SWITCH_MINUTES_CANDIDATES = [10, 8, 7, 6, 5, 4, 3, 2]
 # Preferred final-phase delays (ms) — picked for the single pre-queue drop.
 FINAL_DELAY_PREFERENCES = [5_000, 3_000, 2_000, 1_500, 1_000, 800, 500]
 
+# Preset start windows shown on the main page (minutes before queue, display label).
+PRESET_WINDOWS: list[tuple[float, str]] = [
+    (30, "30 min early"),
+    (45, "45 min early"),
+    (60, "1 hour early"),
+    (75, "1 hr 15 min early"),
+    (90, "1.5 hours early"),
+    (120, "2 hours early"),
+]
+
+# Preferred starting delays to try for each preset, largest first.
+PRESET_START_DELAY_PREFERENCES = [120_000, 90_000, 60_000, 45_000, 30_000, 20_000, 15_000, 10_000, 5_000]
+
+
+@dataclass(frozen=True)
+class PresetPlan:
+    """A fully resolved 2-step plan for a common start window."""
+    label: str
+    minutes_early: float
+    start_delay_ms: int
+    drop_minutes_before: float
+    final_delay_ms: int
+    verified: bool
+    start_time_display: str
+    drop_time_display: str
+    queue_time_display: str
+    start_delay_label: str
+    final_delay_label: str
+    drop_minutes_label: str
+    refreshes_phase1: int
+    refreshes_phase2: int
+    start_h: int
+    start_m: int
+    start_s: int
+
 
 @dataclass(frozen=True)
 class DelayStep:
@@ -410,6 +445,70 @@ def format_minutes_before(minutes: float) -> str:
     if seconds == int(seconds):
         return f"{int(seconds)} sec"
     return f"{seconds:.1f} sec"
+
+
+def preset_schedules(
+    *,
+    target: datetime,
+    tz_key: str = "CDT",
+) -> list[PresetPlan]:
+    """Compute best 2-step plan for each common start window."""
+    tz = get_timezone(tz_key)
+    target = _ensure_tz(target, tz)
+    plans: list[PresetPlan] = []
+
+    def _fmt_clock(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+
+    for window_min, label in PRESET_WINDOWS:
+        start = target - timedelta(minutes=window_min)
+        best_steps: list[DelayStep] | None = None
+        best_start_delay = 0
+
+        for start_delay in PRESET_START_DELAY_PREFERENCES:
+            if start_delay >= window_min * 60 * 1000:
+                # Starting delay larger than the whole window — skip
+                continue
+            try:
+                steps = build_two_step_schedule(
+                    target=target,
+                    start=start,
+                    initial_delay_ms=start_delay,
+                )
+                if best_steps is None or start_delay > best_start_delay:
+                    best_steps = steps
+                    best_start_delay = start_delay
+                    break  # first (largest) working delay wins
+            except ValueError:
+                continue
+
+        if best_steps is None or len(best_steps) < 2:
+            continue
+
+        s1, s2 = best_steps[0], best_steps[1]
+        plans.append(
+            PresetPlan(
+                label=label,
+                minutes_early=window_min,
+                start_delay_ms=s1.delay_ms,
+                drop_minutes_before=s2.minutes_before,
+                final_delay_ms=s2.delay_ms,
+                verified=True,
+                start_time_display=_fmt_clock(s1.at),
+                drop_time_display=_fmt_clock(s2.at),
+                queue_time_display=_fmt_clock(target),
+                start_delay_label=format_duration_ms(s1.delay_ms),
+                final_delay_label=format_duration_ms(s2.delay_ms),
+                drop_minutes_label=format_minutes_before(s2.minutes_before),
+                refreshes_phase1=s1.refreshes_until_next or 0,
+                refreshes_phase2=s2.refreshes_until_next or 0,
+                start_h=s1.at.astimezone(tz).hour,
+                start_m=s1.at.astimezone(tz).minute,
+                start_s=s1.at.astimezone(tz).second,
+            )
+        )
+    return plans
 
 
 def schedule_to_dict(schedule: Schedule) -> dict:

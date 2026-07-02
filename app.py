@@ -17,6 +17,7 @@ from scheduler import (
     create_demo_target,
     get_timezone,
     next_walmart_queue_time,
+    preset_schedules,
     recommended_start_delays,
     schedule_to_dict,
     schedule_to_live_demo,
@@ -96,6 +97,43 @@ def index():
         default_tz="CDT",
         default_queue_hour=DEFAULT_QUEUE_HOUR,
         starter_delays=[120000, 90000, 60000, 45000, 30000, 20000, 15000, 10000, 5000],
+    )
+
+
+@app.route("/api/preset-schedules", methods=["GET"])
+def preset_schedules_api():
+    tz_key = (request.args.get("timezone") or "CDT").upper()
+    if tz_key not in TIMEZONES:
+        return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+    target = next_walmart_queue_time(tz_key=tz_key)
+    plans = preset_schedules(target=target, tz_key=tz_key)
+    return jsonify(
+        {
+            "queue_live": target.strftime("%I:%M %p").lstrip("0")
+            + f" {target.tzname()} — Wednesday {target.strftime('%B %d')}",
+            "plans": [
+                {
+                    "label": p.label,
+                    "minutes_early": p.minutes_early,
+                    "start_delay_ms": p.start_delay_ms,
+                    "start_delay_label": p.start_delay_label,
+                    "start_time_display": p.start_time_display,
+                    "drop_time_display": p.drop_time_display,
+                    "drop_minutes_before": p.drop_minutes_before,
+                    "drop_minutes_label": p.drop_minutes_label,
+                    "final_delay_ms": p.final_delay_ms,
+                    "final_delay_label": p.final_delay_label,
+                    "queue_time_display": p.queue_time_display,
+                    "refreshes_phase1": p.refreshes_phase1,
+                    "refreshes_phase2": p.refreshes_phase2,
+                    "verified": p.verified,
+                    "start_h": p.start_h,
+                    "start_m": p.start_m,
+                    "start_s": p.start_s,
+                }
+                for p in plans
+            ],
+        }
     )
 
 

@@ -54,7 +54,7 @@ def print_schedule(schedule: Schedule) -> None:
         if i == len(schedule.steps) - 1:
             next_label = "queue goes live"
         else:
-            next_label = format_minutes_before(schedule.steps[i + 1].minutes_before) + " before"
+            next_label = "your one drop (then queue live)"
 
         align_flag = "" if step.aligned else "  [!] exact one-shot delay"
         print(f"  {label}")
