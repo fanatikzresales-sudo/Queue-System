@@ -1,0 +1,116 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"          # Runs when you push a tag like v1.0.0
+  workflow_dispatch:  # Also lets you trigger it manually from GitHub Actions tab
+
+permissions:
+  contents: write   # needed to create releases and upload assets
+
+jobs:
+  # ── Windows .exe ────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install "pyinstaller>=6.0.0"
+
+      - name: Build EXE
+        run: pyinstaller walmart_queue.spec --clean --noconfirm
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/WalmartQueueOptimizer.exe
+
+  # ── macOS .app ──────────────────────────────────────────────────────────────
+  build-mac:
+    name: Build macOS App
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip3 install -r requirements.txt
+          pip3 install "pyinstaller>=6.0.0"
+
+      - name: Build .app bundle
+        run: pyinstaller walmart_queue.spec --clean --noconfirm
+
+      - name: Zip the .app bundle
+        run: |
+          cd dist
+          zip -r WalmartQueueOptimizer-Mac.zip WalmartQueueOptimizer.app
+
+      - name: Upload Mac artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: dist/WalmartQueueOptimizer-Mac.zip
+
+  # ── Create GitHub Release with both files ───────────────────────────────────
+  release:
+    name: Create Release
+    needs: [build-windows, build-mac]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: release-files
+
+      - name: Download Mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-app
+          path: release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Walmart Queue Optimizer ${{ github.ref_name }}"
+          body: |
+            ## Walmart Queue Optimizer ${{ github.ref_name }}
+
+            ### Download
+            | Platform | File |
+            |----------|------|
+            | **Windows** | `WalmartQueueOptimizer.exe` — double-click to run |
+            | **Mac** | `WalmartQueueOptimizer-Mac.zip` — unzip, drag to Applications |
+
+            ### How to use
+            1. Download the file for your platform above
+            2. Open it — your browser launches automatically
+            3. Pick a preset plan or enter a custom start time
+            4. Hit **Queue Optimize** to get your 2-step delay schedule
+
+            > **Mac users:** Right-click → Open the first time to bypass Gatekeeper
+          files: |
+            release-files/WalmartQueueOptimizer.exe
+            release-files/WalmartQueueOptimizer-Mac.zip
+          draft: false
+          prerelease: false
