@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queue Drop Timer — Walmart Wednesday Delay Planner</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9201;</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="spark">✦</span>
+      <div>
+        <h1>Queue Drop Timer</h1>
+        <p>Step-down refresh delays that land <em>exactly</em> on queue go-live</p>
+      </div>
+    </div>
+    <div class="clocks">
+      <div class="clock-box">
+        <span class="clock-label">Central time</span>
+        <span class="clock-value mono" id="clock-central">--:--:--</span>
+      </div>
+      <div class="clock-box">
+        <span class="clock-label">Your local time</span>
+        <span class="clock-value mono" id="clock-local">--:--:--</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="planner">1 · Delay Planner</button>
+    <button class="tab" data-tab="live">2 · Live Assistant</button>
+    <button class="tab" data-tab="simulator">3 · Queue Simulator</button>
+  </nav>
+
+  <!-- ============================ PLANNER ============================ -->
+  <main id="tab-planner" class="tab-panel active">
+    <section class="card">
+      <h2>Drop settings</h2>
+      <div class="grid-3">
+        <label>
+          Queue go-live date
+          <input type="date" id="in-date" />
+        </label>
+        <label>
+          Go-live time (Central)
+          <input type="time" id="in-time" step="1" value="20:00" />
+        </label>
+        <label>
+          SKU / item label <span class="hint">(for your notes + simulator)</span>
+          <input type="text" id="in-sku" value="pokemon-151" />
+        </label>
+      </div>
+      <div class="grid-3">
+        <label>
+          Start refreshing this long before go-live
+          <div class="suffix-wrap"><input type="number" id="in-lead" value="30" min="1" /><span>min</span></div>
+        </label>
+        <label>
+          Initial (safe) delay
+          <div class="suffix-wrap"><input type="number" id="in-initial" value="10000" min="100" step="100" /><span>ms</span></div>
+        </label>
+        <label>
+          Proxy risk threshold <span class="hint">(warn above this rate)</span>
+          <div class="suffix-wrap"><input type="number" id="in-risk" value="30" min="1" /><span>req/min</span></div>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Step-downs <span class="hint">— "at T-minus X, drop the delay to Y ms"</span></h2>
+      <div id="steps-list"></div>
+      <button class="btn ghost" id="btn-add-step">+ Add step-down</button>
+      <p class="note">
+        Requested switch times get snapped <strong>slightly earlier</strong> where needed so every phase is an
+        exact multiple of its delay — that's what guarantees the final refresh hits go-live at 0 ms.
+      </p>
+    </section>
+
+    <section class="card" id="plan-output">
+      <!-- rendered by app.js -->
+    </section>
+  </main>
+
+  <!-- ============================ LIVE ============================ -->
+  <main id="tab-live" class="tab-panel">
+    <section class="card live-card">
+      <div class="live-countdown">
+        <span class="live-label">Queue goes live in</span>
+        <span class="mono huge" id="live-countdown">--:--</span>
+        <span class="hint" id="live-golive-at"></span>
+      </div>
+      <div class="live-now">
+        <div class="live-chip">
+          <span class="live-label">Delay you should be running NOW</span>
+          <span class="mono big accent" id="live-current-delay">—</span>
+        </div>
+        <div class="live-chip">
+          <span class="live-label">Next change</span>
+          <span class="mono big" id="live-next-change">—</span>
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" id="live-sound" checked /> Play a beep at every delay change</label>
+    </section>
+    <section class="card">
+      <h2>Action timeline</h2>
+      <div id="live-actions"></div>
+    </section>
+  </main>
+
+  <!-- ============================ SIMULATOR ============================ -->
+  <main id="tab-simulator" class="tab-panel">
+    <section class="card">
+      <h2>Mock Walmart queue</h2>
+      <p class="note">
+        This server hosts a fake item page at <code id="sim-endpoint" class="mono">/api/queue/&lt;sku&gt;</code>.
+        Before go-live it returns a waiting room; at go-live it opens and hands out queue positions in arrival
+        order. Point your real automation program at that URL for a dry run — every hit is logged below with
+        millisecond offsets from go-live.
+      </p>
+      <div class="row wrap">
+        <span class="live-label">Mock go-live:</span>
+        <span class="mono" id="sim-golive">loading…</span>
+        <button class="btn ghost" id="btn-mock-2m">Set to +2 min</button>
+        <button class="btn ghost" id="btn-mock-5m">Set to +5 min</button>
+        <button class="btn ghost" id="btn-mock-planner">Match planner go-live</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Virtual bot</h2>
+      <p class="note">
+        Runs your exact delay plan (same step-downs, compressed to the time available) against the mock queue,
+        so you can verify the last refresh lands on go-live before Wednesday.
+      </p>
+      <div class="row wrap">
+        <button class="btn primary" id="btn-sim-run">▶ Run plan against mock queue</button>
+        <button class="btn ghost" id="btn-sim-stop" disabled>■ Stop</button>
+        <button class="btn ghost" id="btn-hits-clear">Clear hit log</button>
+        <span id="sim-status" class="hint"></span>
+      </div>
+      <div id="sim-verdict"></div>
+    </section>
+
+    <section class="card">
+      <h2>Hit log <span class="hint">(auto-refreshes; includes hits from your own automation)</span></h2>
+      <div class="table-scroll">
+        <table class="mono" id="hits-table">
+          <thead>
+            <tr><th>#</th><th>SKU</th><th>Time (Central)</th><th>Offset from go-live</th><th>Result</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      All times are computed against the queue's Central time (America/Chicago) and shown in both zones.
+      Proxy-ban thresholds vary by provider — the req/min warnings are guidance, not guarantees.
+    </p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
