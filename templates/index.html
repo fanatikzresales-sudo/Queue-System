@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walmart Queue Optimizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="badge">Pokemon Queue</div>
+      <h1>Walmart Queue Optimizer</h1>
+      <p class="subtitle">
+        Set your start time and starting delay. Hit <strong>Queue Optimize</strong> to get
+        exact drop times so your refresh lands at <strong>8:00 PM</strong> when the queue goes live.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel inputs">
+        <h2>Your Settings</h2>
+
+        <label class="field">
+          <span>Timezone</span>
+          <select id="timezone">
+            {% for key, label in timezones.items() %}
+            <option value="{{ key }}" {% if key == default_tz %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Start Time <small>(when you start your bot)</small></span>
+          <input type="time" id="start_time" value="19:00" step="1">
+        </label>
+
+        <label class="field">
+          <span>Starting Delay <small>(milliseconds between refreshes)</small></span>
+          <div class="delay-row">
+            <input type="number" id="initial_delay_ms" value="60000" min="250" step="250">
+            <select id="delay_preset">
+              <option value="">Presets</option>
+              {% for d in starter_delays %}
+              <option value="{{ d }}">{{ d // 1000 }}s ({{ d }} ms)</option>
+              {% endfor %}
+            </select>
+          </div>
+        </label>
+
+        <label class="checkbox">
+          <input type="checkbox" id="demo_mode">
+          <span>Demo mode — test with queue live in 5 minutes (verify logic now)</span>
+        </label>
+
+        <button type="button" id="optimize_btn" class="primary">Queue Optimize</button>
+        <button type="button" id="refresh_starters_btn" class="secondary">Refresh Starter Delays</button>
+      </section>
+
+      <section class="panel starters">
+        <h2>Recommended Starting Delays</h2>
+        <p class="hint">Safe delays you can start with. Green = hits queue exactly without extra drops.</p>
+        <div id="starter_list" class="starter-list">
+          <p class="placeholder">Enter a start time and click Refresh Starter Delays.</p>
+        </div>
+      </section>
+
+      <section class="panel results" id="results_panel" hidden>
+        <div class="results-header">
+          <h2>Optimized Drop Schedule</h2>
+          <div id="verification" class="verification"></div>
+        </div>
+
+        <div class="summary" id="summary"></div>
+
+        <h3>When to Drop Your Delay</h3>
+        <div class="table-wrap">
+          <table id="drop_table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Before Queue</th>
+                <th>Set Delay To</th>
+                <th>Refreshes Until Next</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h3>Final Refreshes</h3>
+        <ul id="final_refreshes" class="refresh-list"></ul>
+      </section>
+    </main>
+
+    <section class="panel demo-info">
+      <h2>How Demo Mode Works</h2>
+      <p>
+        Demo mode sets a fake queue time <strong>5 minutes from now</strong> instead of waiting for Wednesday 8 PM.
+        Use your current time as the start time (or a few minutes earlier), pick a starting delay, and hit
+        <strong>Queue Optimize</strong>. Watch the final refresh list — the last entry should match the demo queue time exactly.
+      </p>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
