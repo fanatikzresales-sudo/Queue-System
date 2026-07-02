@@ -511,3 +511,43 @@ def schedule_to_dict(schedule: Schedule) -> dict:
             for t in schedule.final_refresh_times[-15:]
         ],
     }
+
+
+def schedule_to_live_demo(schedule: Schedule) -> dict:
+    """Serialize schedule with millisecond timestamps for live demo playback."""
+    base = schedule_to_dict(schedule)
+    tz = get_timezone(schedule.timezone_key)
+
+    def ts_ms(dt: datetime) -> int:
+        return int(dt.astimezone(tz).timestamp() * 1000)
+
+    base["target_ts"] = ts_ms(schedule.target)
+    base["start_ts"] = ts_ms(schedule.start)
+    base["server_now_ts"] = ts_ms(datetime.now(tz))
+    base["drop_schedule"] = [
+        {
+            **step,
+            "at_ts": ts_ms(schedule.steps[i].at),
+        }
+        for i, step in enumerate(base["drop_schedule"])
+    ]
+    base["all_refreshes"] = [
+        {
+            "time": fmt_refresh(t, tz),
+            "ts": ts_ms(t),
+            "is_queue_live": t == schedule.target,
+        }
+        for t in schedule.final_refresh_times
+    ]
+    return base
+
+
+def fmt_refresh(dt: datetime, tz: ZoneInfo) -> str:
+    local = dt.astimezone(tz)
+    return local.strftime("%I:%M:%S.%f")[:-3] + f" {local.strftime('%p')} {local.tzname()}"
+
+
+# Short milestones for the 3-minute live demo window.
+LIVE_DEMO_MINUTES = 3.0
+LIVE_DEMO_MILESTONES = [2, 1, 0.5, 0.25, 10 / 60, 5 / 60]
+LIVE_DEMO_INITIAL_DELAY_MS = 15_000

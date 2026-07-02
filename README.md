@@ -11,6 +11,8 @@ python3 app.py
 
 Open **http://localhost:5000** in your browser.
 
+**Live demo:** open **http://localhost:5000/demo-live** to watch a real-time 3-minute simulation — refreshes fire live, delays drop automatically, and you can verify the final refresh hits queue go-live exactly.
+
 ### Web features
 
 - **Timezone** — Central (CDT), Eastern (EST), or Pacific (PT)

@@ -325,6 +325,18 @@ tr.drop-row td:first-child {
   font-size: 0.9rem;
 }
 
+.subtitle .live-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--success);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.subtitle .live-link:hover {
+  text-decoration: underline;
+}
+
 .error-banner {
   background: rgba(231, 76, 60, 0.15);
   color: var(--danger);

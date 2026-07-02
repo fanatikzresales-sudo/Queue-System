@@ -9,6 +9,9 @@ from flask import Flask, jsonify, render_template, request
 
 from scheduler import (
     DEFAULT_QUEUE_HOUR,
+    LIVE_DEMO_INITIAL_DELAY_MS,
+    LIVE_DEMO_MILESTONES,
+    LIVE_DEMO_MINUTES,
     TIMEZONE_LABELS,
     TIMEZONES,
     build_schedule,
@@ -17,6 +20,7 @@ from scheduler import (
     next_walmart_queue_time,
     recommended_start_delays,
     schedule_to_dict,
+    schedule_to_live_demo,
 )
 
 app = Flask(__name__)
@@ -46,6 +50,38 @@ def _resolve_start(start_time: str, target, tz_key: str, demo: bool = False):
         else:
             raise ValueError("Start time must be before queue go-live (8:00 PM).")
     return start
+
+
+@app.route("/demo-live")
+def demo_live():
+    return render_template("demo_live.html", timezones=TIMEZONE_LABELS)
+
+
+@app.route("/api/demo-live", methods=["GET"])
+def demo_live_api():
+    tz_key = (request.args.get("timezone") or "CDT").upper()
+    if tz_key not in TIMEZONES:
+        return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+
+    tz = get_timezone(tz_key)
+    now = datetime.now(tz).replace(microsecond=0)
+    target = create_demo_target(minutes_from_now=LIVE_DEMO_MINUTES, now=now, tz_key=tz_key)
+    start = now
+
+    schedule = build_schedule(
+        target=target,
+        start=start,
+        tz_key=tz_key,
+        initial_delay_ms=LIVE_DEMO_INITIAL_DELAY_MS,
+        milestones_min=LIVE_DEMO_MILESTONES,
+    )
+    return jsonify(
+        {
+            "mode": "live_demo",
+            "demo_duration_minutes": LIVE_DEMO_MINUTES,
+            **schedule_to_live_demo(schedule),
+        }
+    )
 
 
 @app.route("/")
