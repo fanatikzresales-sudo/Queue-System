@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Walmart Wednesday Queue — Delay Planner</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="spark">◉</span>
+    <div>
+      <h1>Walmart Wednesday Queue Planner</h1>
+      <p class="sub">Plan phase-aligned refresh delays so a refresh lands exactly on the 8:00 AM CT go-live — without hammering your proxy.</p>
+    </div>
+  </div>
+  <div class="countdown card">
+    <div class="cd-label">Go-live (next Wednesday 8:00 AM Central)</div>
+    <div id="goLiveClock" class="cd-clock">--:--:--</div>
+    <div id="countdown" class="cd-timer">T-–:–:–</div>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1. Configure the run</h2>
+    <div class="row">
+      <label>Preset
+        <select id="preset">
+          <option value="balanced">Balanced (recommended)</option>
+          <option value="conservative">Conservative (lowest ban risk)</option>
+          <option value="aggressive">Aggressive (fastest, higher risk)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label>Auto-align final delay to hit 8:00:00
+        <select id="autoAlign">
+          <option value="true">On</option>
+          <option value="false">Off</option>
+        </select>
+      </label>
+      <label>Final delay min (ms)
+        <input id="finalMin" type="number" value="500" min="50" step="50" />
+      </label>
+      <label>Final delay max (ms)
+        <input id="finalMax" type="number" value="4000" min="100" step="100" />
+      </label>
+      <label>Caution at (req/min)
+        <input id="warn" type="number" value="40" min="1" />
+      </label>
+      <label>Ban risk at (req/min)
+        <input id="danger" type="number" value="60" min="1" />
+      </label>
+    </div>
+
+    <h3>Phases (delay drops)</h3>
+    <p class="hint">Each phase sets a refresh delay that activates at a given time before go-live. Slow (big delay) early keeps the proxy safe; the last phase gets auto-tuned so a refresh snaps to 8:00:00.</p>
+    <table class="phase-editor">
+      <thead>
+        <tr><th>Label</th><th>Starts (min before)</th><th>Delay (ms)</th><th></th></tr>
+      </thead>
+      <tbody id="phaseRows"></tbody>
+    </table>
+    <div class="btns">
+      <button id="addPhase" class="ghost">+ Add phase</button>
+      <button id="calc" class="primary">Calculate schedule</button>
+      <button id="dryRun" class="accent">Dry-run vs mock queue</button>
+    </div>
+  </section>
+
+  <section id="results" class="card hidden">
+    <h2>2. Your drop schedule</h2>
+    <div id="landing" class="landing"></div>
+    <div id="alignment" class="alignment"></div>
+    <table class="schedule">
+      <thead>
+        <tr><th>At (T-minus)</th><th>Clock (CT)</th><th>Set delay to</th><th>Req/min</th><th>Risk</th><th>Why</th></tr>
+      </thead>
+      <tbody id="scheduleRows"></tbody>
+    </table>
+    <div id="totals" class="totals"></div>
+  </section>
+
+  <section id="dryResults" class="card hidden">
+    <h2>3. Mock queue dry-run</h2>
+    <p class="hint">Runs your schedule against a local fake Walmart queue (no real requests) to confirm you'd land in the queue and wouldn't get the proxy banned.</p>
+    <div id="dryReport"></div>
+  </section>
+
+  <section class="card">
+    <h2>Point a real bot at the mock queue</h2>
+    <p class="hint">Set your automation's target URL to the endpoint below and give each proxy its own id. Refreshes are logged with ban simulation so you can validate timing against a live clock.</p>
+    <pre class="endpoint">GET <span id="mockUrl"></span>/api/mock/refresh?proxy=YOUR_PROXY_ID</pre>
+    <div class="btns">
+      <button id="mockRefresh" class="ghost">Simulate one refresh</button>
+      <button id="mockReport" class="ghost">Refresh report</button>
+      <button id="mockReset" class="ghost danger-btn">Reset mock</button>
+    </div>
+    <div id="mockOut"></div>
+  </section>
+</main>
+
+<footer>
+  <p>Timing sandbox only. This tool models delays and a fake queue; it does not connect to Walmart.</p>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

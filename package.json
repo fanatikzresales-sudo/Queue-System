@@ -1,0 +1,15 @@
+{
+  "name": "walmart-queue-delay-planner",
+  "version": "1.0.0",
+  "description": "Phase-aligned refresh delay planner + mock queue for Walmart Wednesday Pokemon drops",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
