@@ -83,9 +83,9 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,   # No terminal window on any platform
-    windowed=True,   # Native windowed app
-    icon=None,
+    console=False,
+    windowed=True,
+    icon="assets/icon.ico" if sys.platform == "win32" else "assets/icon.icns",
 )
 
 # Mac: wrap in a proper .app bundle
@@ -98,6 +98,6 @@ if sys.platform == "darwin":
         info_plist={
             "NSPrincipalClass": "NSApplication",
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "1.0.4",
+            "CFBundleShortVersionString": "1.0.5",
         },
     )

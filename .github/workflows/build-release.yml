@@ -26,8 +26,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install "pyinstaller>=6.0.0"
+          pip install "pyinstaller>=6.0.0" pillow
           pip install pywebview[winforms]
+
+      - name: Convert logo to icon
+        run: python convert_icon.py
 
       - name: Build EXE
         run: pyinstaller walmart_queue.spec --clean --noconfirm
@@ -54,8 +57,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install -r requirements.txt
-          pip3 install "pyinstaller>=6.0.0"
+          pip3 install "pyinstaller>=6.0.0" pillow
           pip3 install pywebview
+
+      - name: Convert logo to icon
+        run: python3 convert_icon.py
 
       - name: Build .app bundle
         run: pyinstaller walmart_queue.spec --clean --noconfirm
@@ -104,17 +110,9 @@ jobs:
             | **Windows** | `WalmartQueueOptimizer.exe` — double-click to open |
             | **Mac** | `WalmartQueueOptimizer-Mac.zip` — unzip, drag to Applications |
 
-            ### What's new in this version
-            - Opens as a **standalone desktop app window** — no browser needed
-            - Notifications alert you when it's time to start and drop your delay
-            - All timezone times display correctly (CDT / EDT / PDT)
-            - Auto-advances to next Wednesday after each drop
-
-            ### First time on Mac?
-            Right-click the app → Open → Open (bypasses Gatekeeper warning)
-
-            ### Windows SmartScreen?
-            Click "More info" → "Run anyway"
+            ### First time?
+            - **Windows SmartScreen:** Click "More info" → "Run anyway"
+            - **Mac Gatekeeper:** Right-click → Open → Open
           files: |
             release-files/WalmartQueueOptimizer.exe
             release-files/WalmartQueueOptimizer-Mac.zip
