@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Demo — Walmart Queue Optimizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='demo_live.css') }}">
+</head>
+<body>
+  <div class="page live-page">
+    <header>
+      <div class="badge live-badge">Live Demo Running</div>
+      <h1>Queue Optimizer — Live Demo</h1>
+      <div id="plan_context" class="plan-context" hidden></div>
+      <p class="subtitle">
+        Watch a compressed 3-minute simulation. The same starting delay and single drop
+        you'd use on Wednesday — firing in real time right now.
+        <a class="live-link" href="/">← Back to optimizer</a>
+      </p>
+    </header>
+
+    <section class="panel live-controls">
+      <label class="field">
+        <span>Timezone</span>
+        <select id="timezone">
+          {% for key, label in timezones.items() %}
+          <option value="{{ key }}" {% if key == 'CDT' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="button" id="restart_btn" class="primary">Restart Live Demo</button>
+    </section>
+
+    <section class="live-grid">
+      <div class="panel live-countdown">
+        <div class="countdown-label">Time until queue goes live</div>
+        <div id="countdown" class="countdown-value">--:--</div>
+        <div id="queue_time" class="queue-time">Queue live at —</div>
+        <div class="progress-track">
+          <div id="progress_bar" class="progress-bar"></div>
+        </div>
+        <div id="status_line" class="status-line">Starting demo…</div>
+      </div>
+
+      <div class="panel live-current">
+        <h2>Current Bot State</h2>
+        <div class="state-grid">
+          <div class="state-item">
+            <span class="state-label">Current delay</span>
+            <span id="current_delay" class="state-value">—</span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">Next refresh in</span>
+            <span id="next_refresh_in" class="state-value">—</span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">Total refreshes</span>
+            <span id="refresh_count" class="state-value">0</span>
+          </div>
+          <div class="state-item">
+            <span class="state-label">Verification</span>
+            <span id="verification" class="state-value pending">Waiting…</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Live Event Feed</h2>
+      <div id="event_feed" class="event-feed">
+        <div class="event placeholder">Demo will begin momentarily…</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Scheduled Delay Drops</h2>
+      <div class="table-wrap">
+        <table id="drop_table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Set Delay To</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>All Refreshes</h2>
+      <ul id="refresh_timeline" class="refresh-timeline"></ul>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='demo_live.js') }}"></script>
+</body>
+</html>

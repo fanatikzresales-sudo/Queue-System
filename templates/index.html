@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walmart Queue Optimizer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="page">
+    <!-- Update banner — shown by JS if a newer version is available -->
+    <div id="update-banner" class="update-banner" hidden>
+      <span class="ub-text">
+        🔄 Update available: <strong id="ub-version"></strong>
+        — new features and fixes are ready
+      </span>
+      <a id="ub-link" href="#" target="_blank" class="ub-btn">Download Now →</a>
+      <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
+    </div>
+
+    <header>
+      <div class="badge">Walmart · Pokemon Queue</div>
+      <h1>Queue Delay Optimizer</h1>
+      <p class="subtitle">
+        Pick how early you start. Get exactly <strong>2 delays</strong>: one to set at the start,
+        one to drop before queue live so your refresh hits <strong>8:00 PM</strong> on the dot.
+        <a class="live-link" href="/demo-live">Watch live demo →</a>
+      </p>
+    </header>
+
+    <!-- Timezone + demo controls -->
+    <div class="top-bar panel">
+      <label class="field inline">
+        <span>Timezone</span>
+        <select id="timezone">
+          {% for key, label in timezones.items() %}
+          <option value="{{ key }}" {% if key == default_tz %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="top-bar-right">
+        <label class="checkbox">
+          <input type="checkbox" id="demo_mode">
+          <span>Demo mode</span>
+        </label>
+        <a href="/demo-live" class="btn-demo-live" id="demo_live_link">Launch Live Demo →</a>
+      </div>
+    </div>
+
+    <!-- Active Plans panel — shown dynamically when plans are running -->
+    <section class="panel active-plans-section" id="active-plans-section" hidden>
+      <div class="active-plans-header">
+        <div>
+          <h2>Active Plans <span id="active-plans-count" class="ap-count">0</span></h2>
+          <p class="hint">Notifications are scheduled. You'll be alerted before each drop.</p>
+        </div>
+        <button class="ap-cancel-all-btn" id="cancel-all-btn" type="button">Cancel All</button>
+      </div>
+      <div id="active-plans-list" class="active-plans-list"></div>
+    </section>
+
+    <!-- Preset plan cards -->
+    <section class="preset-section">
+      <div class="preset-header">
+        <div>
+          <h2>Common Start Windows</h2>
+          <p class="hint" id="queue_live_label">Loading schedules…</p>
+        </div>
+      </div>
+      <div id="preset_grid" class="preset-grid">
+        <div class="preset-loading">Loading plans…</div>
+      </div>
+    </section>
+
+    <!-- Custom optimizer -->
+    <section class="panel custom-section">
+      <h2>Custom Start Time</h2>
+      <p class="hint">Enter your own start time and delay, then hit <strong>Queue Optimize</strong>.</p>
+      <div class="custom-row">
+        <label class="field">
+          <span>Start Time</span>
+          <input type="time" id="start_time" value="19:00" step="1">
+        </label>
+        <label class="field">
+          <span>Starting Delay</span>
+          <div class="delay-row">
+            <input type="number" id="initial_delay_ms" value="60000" min="250" step="250">
+            <select id="delay_preset">
+              <option value="">Presets</option>
+              {% for d in starter_delays %}
+              <option value="{{ d }}">{{ d // 1000 }}s ({{ d }} ms)</option>
+              {% endfor %}
+            </select>
+          </div>
+        </label>
+        <button type="button" id="optimize_btn" class="primary">Queue Optimize</button>
+      </div>
+    </section>
+
+    <!-- Custom result -->
+    <section class="panel results" id="results_panel" hidden>
+      <div class="results-header">
+        <h2>Your 2-Step Schedule</h2>
+        <div id="verification" class="verification"></div>
+      </div>
+
+      <div class="summary" id="summary"></div>
+      <div id="two_step_cards" class="two-step-cards"></div>
+
+      <h3>Quick Copy</h3>
+      <div class="table-wrap">
+        <table id="drop_table">
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>At What Time</th>
+              <th>Before Queue</th>
+              <th>Set Delay To</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h3>Final Refreshes (last 15)</h3>
+      <ul id="final_refreshes" class="refresh-list"></ul>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
