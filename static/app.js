@@ -629,12 +629,18 @@ demoModeEl.addEventListener("change", () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+function formatDateLocal(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function nextWednesday() {
   const now = new Date();
   const daysUntilWed = (3 - now.getDay() + 7) % 7 || 7;
-  const wed = new Date(now);
-  wed.setDate(now.getDate() + daysUntilWed);
-  return wed.toISOString().split("T")[0];
+  const wed = new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysUntilWed);
+  return formatDateLocal(wed);
 }
 
 customDateEl.value = nextWednesday();
