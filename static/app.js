@@ -673,32 +673,26 @@ loadPresets();
 // downloading it shows "close & reopen to update".
 // Browser: falls back to the /api/version endpoint with a download link.
 
-function showUpdateBanner({ version, staged, downloadUrl }) {
+// The banner is ONLY shown when an update is genuinely ready to apply.
+function showUpdateBanner({ version, downloadUrl, canAutoApply }) {
   const banner = document.getElementById("update-banner");
-  const versionEl = document.getElementById("ub-version");
   const link = document.getElementById("ub-link");
   const textEl = banner.querySelector(".ub-text");
 
-  versionEl.textContent = `v${version}`;
-
-  if (staged) {
-    // New build already downloaded — just needs a restart
+  if (canAutoApply) {
+    // Desktop app: new build already downloaded — just restart
     textEl.innerHTML =
-      `✅ Update <strong id="ub-version">v${version}</strong> downloaded — ` +
-      `<strong>close and reopen</strong> the app to apply it`;
+      `🔄 Update <strong>v${version}</strong> ready — <strong>close and reopen</strong> to update`;
     link.textContent = "Close App Now";
     link.href = "#";
     link.onclick = (e) => {
       e.preventDefault();
-      if (window.pywebview && window.pywebview.api) {
-        // Closing the window triggers the swap-and-relaunch helper
-        window.close();
-      }
+      try { window.pywebview && window.close(); } catch (_) {}
     };
   } else {
-    textEl.innerHTML =
-      `🔄 Update available: <strong id="ub-version">v${version}</strong> — downloading in the background…`;
-    link.textContent = "Get it manually →";
+    // Browser fallback: can't auto-apply, offer manual download
+    textEl.innerHTML = `🔄 Update <strong>v${version}</strong> available`;
+    link.textContent = "Download →";
     link.href = downloadUrl;
     link.target = "_blank";
   }
@@ -708,20 +702,17 @@ function showUpdateBanner({ version, staged, downloadUrl }) {
 }
 
 async function checkUpdatesDesktop() {
-  // Poll the Python bridge every 30s until an update is staged
+  // Poll the Python bridge. Only reveal the banner once the new build is
+  // fully downloaded (staged), so we never show a half-ready state.
   const poll = async () => {
     try {
       const st = await window.pywebview.api.update_status();
-      if (st && st.update_available) {
-        showUpdateBanner({
-          version: st.latest,
-          staged: st.staged,
-          downloadUrl: st.download_url,
-        });
-        if (st.staged) return; // done — stop polling
+      if (st && st.update_available && st.staged) {
+        showUpdateBanner({ version: st.latest, canAutoApply: true });
+        return; // ready — stop polling
       }
     } catch (_) {}
-    setTimeout(poll, 30000);
+    setTimeout(poll, 20000);
   };
   poll();
 }
@@ -733,8 +724,8 @@ async function checkUpdatesBrowser() {
     if (data.update_available) {
       showUpdateBanner({
         version: data.latest,
-        staged: false,
         downloadUrl: data.download_url,
+        canAutoApply: false,
       });
     }
   } catch (_) {}
