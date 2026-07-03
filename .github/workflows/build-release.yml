@@ -35,7 +35,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install "pyinstaller>=6.0.0" pillow
-          pip install pywebview[winforms]
+          pip install pywebview[winforms] plyer
 
       - name: Convert logo to icon
         run: python convert_icon.py
@@ -72,7 +72,7 @@ jobs:
         run: |
           pip3 install -r requirements.txt
           pip3 install "pyinstaller>=6.0.0" pillow
-          pip3 install pywebview
+          pip3 install pywebview plyer
 
       - name: Convert logo to icon
         run: python3 convert_icon.py

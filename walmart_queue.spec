@@ -11,7 +11,7 @@ import sys
 
 block_cipher = None
 
-# Platform-specific pywebview hidden imports
+# Platform-specific pywebview + plyer notification hidden imports
 if sys.platform == "win32":
     webview_imports = [
         "webview",
@@ -20,15 +20,21 @@ if sys.platform == "win32":
         "clr",
         "System",
         "System.Windows.Forms",
+        "plyer.platforms.win.notification",
     ]
 elif sys.platform == "darwin":
     webview_imports = [
         "webview",
         "webview.platforms.cocoa",
         "objc",
+        "plyer.platforms.macosx.notification",
     ]
 else:
-    webview_imports = ["webview", "webview.platforms.gtk"]
+    webview_imports = [
+        "webview",
+        "webview.platforms.gtk",
+        "plyer.platforms.linux.notification",
+    ]
 
 a = Analysis(
     ["main.py"],
@@ -38,9 +44,12 @@ a = Analysis(
         ("templates",  "templates"),
         ("static",     "static"),
         ("version.py", "."),
+        ("updater.py", "."),
     ],
     hiddenimports=[
         "version",
+        "updater",
+        "plyer",
         # zoneinfo / timezone support (critical on Windows)
         "zoneinfo",
         "zoneinfo._tzpath",

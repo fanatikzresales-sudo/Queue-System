@@ -45,6 +45,31 @@ function formatCountdown(ms) {
 let _nameCounter = 1;
 function defaultName() { return `Bot ${_nameCounter++}`; }
 
+// Fire a REAL OS notification (works even when the app is minimized / in background).
+// Uses the pywebview Python bridge when running as the desktop app;
+// falls back to the browser Notification API when opened in a browser.
+function fireOSNotification(title, body) {
+  // Desktop app (pywebview) — real OS toast + brings window to front
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.notify) {
+    try {
+      window.pywebview.api.notify(title, body);
+      return;
+    } catch (_) {}
+  }
+  // Browser fallback
+  try {
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification(title, { body });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(p => {
+          if (p === "granted") new Notification(title, { body });
+        });
+      }
+    }
+  } catch (_) {}
+}
+
 // ── Multi-Plan Manager ────────────────────────────────────────────────────────
 
 const PM = (() => {
@@ -175,6 +200,13 @@ const PM = (() => {
     }, 1000);
 
     if (plans[id]) plans[id].countdownInterval = interval;
+
+    // Real OS notification confirming the plan is set
+    fireOSNotification(
+      `${name} — Plan Active`,
+      `Start at ${plan.start_time_display} with ${plan.start_delay_label}. ` +
+      `Drop to ${plan.final_delay_label} at ${plan.drop_time_display}.`
+    );
   }
 
   // ── Show drop reminder popup ───────────────────────────────────────────────
@@ -197,6 +229,13 @@ const PM = (() => {
       </div>
       <button class="notif-close notif-close-btn notif-got-it">Got It</button>
     `, true);
+
+    // Real OS notification — this is the critical "drop now" alert
+    fireOSNotification(
+      `⚡ ${name} — Drop in 5 minutes!`,
+      `At ${plan.drop_time_display}, change your delay to ${plan.final_delay_label}. ` +
+      `Next refresh hits ${plan.queue_time_display} exactly.`
+    );
   }
 
   // ── Activate ───────────────────────────────────────────────────────────────
@@ -224,7 +263,6 @@ const PM = (() => {
     plans[id] = { name, plan, timers, countdownInterval: null };
     _refreshPanel();
     _showStartPopup(id, name, plan);
-    _tryNative(name, plan, msUntilDropReminder);
 
     return id;
   }
@@ -278,28 +316,6 @@ const PM = (() => {
       </p>
       <button class="notif-close notif-close-btn">Close</button>
     `);
-  }
-
-  // ── Native notifications ───────────────────────────────────────────────────
-
-  function _tryNative(name, plan, msUntilDropReminder) {
-    if (!("Notification" in window)) return;
-    Notification.requestPermission().then(perm => {
-      if (perm !== "granted") return;
-      const msUntilStart = plan.start_ts_ms - Date.now();
-      new Notification(`🎯 ${name} — Plan Active`, {
-        body: `Start at ${plan.start_time_display} with ${plan.start_delay_label}`,
-        tag: `wq-start-${Date.now()}`,
-      });
-      if (msUntilDropReminder > 0) {
-        setTimeout(() => {
-          new Notification(`⚡ ${name} — Drop in 5 min!`, {
-            body: `At ${plan.drop_time_display} → change to ${plan.final_delay_label}`,
-            tag: `wq-drop-${Date.now()}`,
-          });
-        }, msUntilDropReminder);
-      }
-    });
   }
 
   return { activate, cancel, cancelAll };
@@ -652,19 +668,83 @@ nextWedBtn.addEventListener("click", () => {
 
 loadPresets();
 
-// Check for updates in the background
-(async () => {
+// ── Update checking ─────────────────────────────────────────────────────────
+// Desktop app: polls the pywebview bridge; when the new build finishes
+// downloading it shows "close & reopen to update".
+// Browser: falls back to the /api/version endpoint with a download link.
+
+function showUpdateBanner({ version, staged, downloadUrl }) {
+  const banner = document.getElementById("update-banner");
+  const versionEl = document.getElementById("ub-version");
+  const link = document.getElementById("ub-link");
+  const textEl = banner.querySelector(".ub-text");
+
+  versionEl.textContent = `v${version}`;
+
+  if (staged) {
+    // New build already downloaded — just needs a restart
+    textEl.innerHTML =
+      `✅ Update <strong id="ub-version">v${version}</strong> downloaded — ` +
+      `<strong>close and reopen</strong> the app to apply it`;
+    link.textContent = "Close App Now";
+    link.href = "#";
+    link.onclick = (e) => {
+      e.preventDefault();
+      if (window.pywebview && window.pywebview.api) {
+        // Closing the window triggers the swap-and-relaunch helper
+        window.close();
+      }
+    };
+  } else {
+    textEl.innerHTML =
+      `🔄 Update available: <strong id="ub-version">v${version}</strong> — downloading in the background…`;
+    link.textContent = "Get it manually →";
+    link.href = downloadUrl;
+    link.target = "_blank";
+  }
+
+  banner.hidden = false;
+  document.getElementById("ub-dismiss").onclick = () => { banner.hidden = true; };
+}
+
+async function checkUpdatesDesktop() {
+  // Poll the Python bridge every 30s until an update is staged
+  const poll = async () => {
+    try {
+      const st = await window.pywebview.api.update_status();
+      if (st && st.update_available) {
+        showUpdateBanner({
+          version: st.latest,
+          staged: st.staged,
+          downloadUrl: st.download_url,
+        });
+        if (st.staged) return; // done — stop polling
+      }
+    } catch (_) {}
+    setTimeout(poll, 30000);
+  };
+  poll();
+}
+
+async function checkUpdatesBrowser() {
   try {
     const res = await fetch("/api/version");
     const data = await res.json();
     if (data.update_available) {
-      const banner = document.getElementById("update-banner");
-      document.getElementById("ub-version").textContent = `v${data.latest}`;
-      document.getElementById("ub-link").href = data.download_url;
-      banner.hidden = false;
-      document.getElementById("ub-dismiss").addEventListener("click", () => {
-        banner.hidden = true;
+      showUpdateBanner({
+        version: data.latest,
+        staged: false,
+        downloadUrl: data.download_url,
       });
     }
   } catch (_) {}
-})();
+}
+
+// pywebview injects window.pywebview asynchronously — wait briefly for it
+setTimeout(() => {
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.update_status) {
+    checkUpdatesDesktop();
+  } else {
+    checkUpdatesBrowser();
+  }
+}, 1200);
