@@ -102,7 +102,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         exe,
         name="FRQueueOptimizer.app",
-        icon=None,
+        icon="assets/icon.icns",
         bundle_identifier="com.walmartqueue.optimizer",
         info_plist={
             "NSPrincipalClass": "NSApplication",
