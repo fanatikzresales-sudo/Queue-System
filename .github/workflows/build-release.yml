@@ -23,6 +23,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Stamp version from git tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          (Get-Content version.py) -replace 'APP_VERSION = ".*"', "APP_VERSION = `"$version`"" | Set-Content version.py
+          Write-Host "APP_VERSION set to $version"
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
@@ -53,6 +61,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Stamp version from git tag
+        run: |
+          VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          sed -i '' "s/APP_VERSION = \".*\"/APP_VERSION = \"$VERSION\"/" version.py
+          echo "APP_VERSION set to $VERSION"
 
       - name: Install dependencies
         run: |
@@ -109,6 +123,10 @@ jobs:
             |----------|------|
             | **Windows** | `WalmartQueueOptimizer.exe` — double-click to open |
             | **Mac** | `WalmartQueueOptimizer-Mac.zip` — unzip, drag to Applications |
+
+            ### Auto-update
+            When you open the app, it checks for updates automatically.
+            If a newer version is available, a banner appears at the top with a download link.
 
             ### First time?
             - **Windows SmartScreen:** Click "More info" → "Run anyway"
