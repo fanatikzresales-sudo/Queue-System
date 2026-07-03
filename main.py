@@ -1,5 +1,5 @@
 """
-Walmart Queue Optimizer — desktop launcher.
+FR Queue Optimizer — desktop launcher.
 
 Opens as a standalone native app window (no browser needed).
 Double-click the executable on Windows or the .app on Mac.
@@ -92,7 +92,7 @@ def main() -> None:
         import webview
 
         window = webview.create_window(
-            title="Walmart Queue Optimizer",
+            title="FR Queue Optimizer",
             url=url,
             width=1280,
             height=900,

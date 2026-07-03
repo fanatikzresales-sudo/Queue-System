@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: dist/WalmartQueueOptimizer.exe
+          path: dist/FRQueueOptimizer.exe
 
   # ── macOS .app ───────────────────────────────────────────────────────────────
   build-mac:
@@ -83,13 +83,13 @@ jobs:
       - name: Zip the .app bundle
         run: |
           cd dist
-          zip -r WalmartQueueOptimizer-Mac.zip WalmartQueueOptimizer.app
+          zip -r FRQueueOptimizer-Mac.zip FRQueueOptimizer.app
 
       - name: Upload Mac artifact
         uses: actions/upload-artifact@v4
         with:
           name: mac-app
-          path: dist/WalmartQueueOptimizer-Mac.zip
+          path: dist/FRQueueOptimizer-Mac.zip
 
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
@@ -114,15 +114,15 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Walmart Queue Optimizer ${{ github.ref_name }}"
+          name: "FR Queue Optimizer ${{ github.ref_name }}"
           body: |
-            ## Walmart Queue Optimizer ${{ github.ref_name }}
+            ## FR Queue Optimizer ${{ github.ref_name }}
 
             ### Download
             | Platform | File |
             |----------|------|
-            | **Windows** | `WalmartQueueOptimizer.exe` — double-click to open |
-            | **Mac** | `WalmartQueueOptimizer-Mac.zip` — unzip, drag to Applications |
+            | **Windows** | `FRQueueOptimizer.exe` — double-click to open |
+            | **Mac** | `FRQueueOptimizer-Mac.zip` — unzip, drag to Applications |
 
             ### Auto-update
             When you open the app, it checks for updates automatically.
@@ -132,7 +132,7 @@ jobs:
             - **Windows SmartScreen:** Click "More info" → "Run anyway"
             - **Mac Gatekeeper:** Right-click → Open → Open
           files: |
-            release-files/WalmartQueueOptimizer.exe
-            release-files/WalmartQueueOptimizer-Mac.zip
+            release-files/FRQueueOptimizer.exe
+            release-files/FRQueueOptimizer-Mac.zip
           draft: false
           prerelease: false

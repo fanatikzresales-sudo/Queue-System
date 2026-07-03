@@ -57,7 +57,7 @@ def _fetch_latest_version() -> None:
         try:
             url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
             req = urllib.request.Request(
-                url, headers={"User-Agent": "WalmartQueueOptimizer"}
+                url, headers={"User-Agent": "FRQueueOptimizer"}
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())

@@ -1,4 +1,4 @@
-# Walmart Queue Optimizer
+# FR Queue Optimizer
 
 Two delays only — one when you start, one drop before queue live — so your whole team hits **8:00 PM Wednesday** exactly.
 
@@ -7,14 +7,14 @@ Two delays only — one when you start, one drop before queue live — so your w
 ## Download & Run (No coding needed)
 
 ### Windows
-1. **Download** `WalmartQueueOptimizer.exe` from the [Releases page](../../releases)
+1. **Download** `FRQueueOptimizer.exe` from the [Releases page](../../releases)
 2. **Double-click** it
 3. Your browser opens automatically at `http://127.0.0.1:5000`
 4. Close the window to stop
 
 ### Mac
-1. **Download** `WalmartQueueOptimizer.app.zip` from the [Releases page](../../releases)
-2. **Unzip** and drag `WalmartQueueOptimizer.app` to your Applications folder
+1. **Download** `FRQueueOptimizer.app.zip` from the [Releases page](../../releases)
+2. **Unzip** and drag `FRQueueOptimizer.app` to your Applications folder
 3. **Right-click → Open** the first time (to bypass Gatekeeper)
 4. Your browser opens automatically
 5. Quit from the menu bar or close the terminal
@@ -66,13 +66,13 @@ python3 main.py
 ```bat
 build_windows.bat
 ```
-Output: `dist\WalmartQueueOptimizer.exe`
+Output: `dist\FRQueueOptimizer.exe`
 
 ### Build Mac .app (run on Mac)
 ```bash
 bash build_mac.sh
 ```
-Output: `dist/WalmartQueueOptimizer.app`
+Output: `dist/FRQueueOptimizer.app`
 
 ### CLI (advanced)
 ```bash

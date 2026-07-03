@@ -1,11 +1,11 @@
 @echo off
 REM ============================================================
-REM  Walmart Queue Optimizer — Windows Build Script
+REM  FR Queue Optimizer — Windows Build Script
 REM  Run this on a Windows PC to create the .exe
 REM ============================================================
 
 echo.
-echo  Walmart Queue Optimizer - Build for Windows
+echo  FR Queue Optimizer - Build for Windows
 echo  ============================================
 echo.
 
@@ -46,7 +46,7 @@ IF ERRORLEVEL 1 (
 echo.
 echo  ============================================
 echo  BUILD COMPLETE!
-echo  Your app is at: dist\WalmartQueueOptimizer.exe
+echo  Your app is at: dist\FRQueueOptimizer.exe
 echo  Double-click it to run — no install needed.
 echo  ============================================
 echo.

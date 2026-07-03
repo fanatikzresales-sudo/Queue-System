@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec for Walmart Queue Optimizer.
+PyInstaller spec for FR Queue Optimizer.
 
 Build commands:
   Windows: pyinstaller walmart_queue.spec
@@ -76,7 +76,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="WalmartQueueOptimizer",
+    name="FRQueueOptimizer",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -92,7 +92,7 @@ exe = EXE(
 if sys.platform == "darwin":
     app = BUNDLE(
         exe,
-        name="WalmartQueueOptimizer.app",
+        name="FRQueueOptimizer.app",
         icon=None,
         bundle_identifier="com.walmartqueue.optimizer",
         info_plist={
