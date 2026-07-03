@@ -100,6 +100,15 @@ def _resolve_start(start_time: str, target, tz_key: str, demo: bool = False):
     return start
 
 
+@app.after_request
+def _no_cache(response):
+    """Prevent the embedded webview from serving stale JS/CSS after an update."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 @app.route("/api/version")
 def version_api():
     with _update_lock:
@@ -125,7 +134,7 @@ def version_api():
 
 @app.route("/demo-live")
 def demo_live():
-    return render_template("demo_live.html", timezones=TIMEZONE_LABELS)
+    return render_template("demo_live.html", timezones=TIMEZONE_LABELS, app_version=APP_VERSION)
 
 
 @app.route("/api/demo-live", methods=["GET"])
@@ -181,6 +190,7 @@ def index():
         default_tz="CDT",
         default_queue_hour=DEFAULT_QUEUE_HOUR,
         starter_delays=[120000, 90000, 60000, 45000, 30000, 20000, 15000, 10000, 5000],
+        app_version=APP_VERSION,
     )
 
 

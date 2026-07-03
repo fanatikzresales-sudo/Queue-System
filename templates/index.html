@@ -4,17 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FR Queue Optimizer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
 </head>
 <body>
   <div class="page">
-    <!-- Update banner — shown by JS if a newer version is available -->
+    <!-- Update banner — text is set by JS ONLY when an update is ready -->
     <div id="update-banner" class="update-banner" hidden>
-      <span class="ub-text">
-        🔄 Update available: <strong id="ub-version"></strong>
-        — new features and fixes are ready
-      </span>
-      <a id="ub-link" href="#" target="_blank" class="ub-btn">Download Now →</a>
+      <span class="ub-text"></span>
+      <a id="ub-link" href="#" class="ub-btn"></a>
       <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
     </div>
 
@@ -138,6 +135,6 @@
     </section>
   </div>
 
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>
 </body>
 </html>

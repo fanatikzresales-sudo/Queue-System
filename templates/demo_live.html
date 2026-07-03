@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Demo — FR Queue Optimizer</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='demo_live.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='demo_live.css') }}?v={{ app_version }}">
 </head>
 <body>
   <div class="page live-page">
@@ -95,6 +95,6 @@
     </section>
   </div>
 
-  <script src="{{ url_for('static', filename='demo_live.js') }}"></script>
+  <script src="{{ url_for('static', filename='demo_live.js') }}?v={{ app_version }}"></script>
 </body>
 </html>
