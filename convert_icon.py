@@ -50,7 +50,7 @@ def make_ico(src: Image.Image, dest: Path) -> None:
             img = img.convert("RGBA")
         imgs.append(img)
     imgs[-1].save(dest, format="ICO", sizes=[(s, s) for s in WIN_SIZES])
-    print(f"  ✓ {dest}")
+    print(f"  OK {dest}")
 
 
 def make_icns(src: Image.Image, dest: Path) -> None:
@@ -76,7 +76,7 @@ def make_icns(src: Image.Image, dest: Path) -> None:
     total = 8 + len(chunks)
     icns_data = b"icns" + struct.pack(">I", total) + chunks
     dest.write_bytes(icns_data)
-    print(f"  ✓ {dest}")
+    print(f"  OK {dest}")
 
 
 def main() -> None:
