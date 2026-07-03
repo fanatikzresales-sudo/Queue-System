@@ -376,6 +376,34 @@ select {
   gap: 0.5rem;
 }
 
+.date-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.date-row input[type="date"] {
+  flex: 1;
+}
+
+.btn-next-wed {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-next-wed:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 button.primary {
   background: var(--accent);
   color: white;

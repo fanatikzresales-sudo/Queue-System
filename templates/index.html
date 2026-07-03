@@ -75,10 +75,21 @@
     <!-- Custom optimizer -->
     <section class="panel custom-section">
       <h2>Custom Start Time</h2>
-      <p class="hint">Enter your own start time and delay, then hit <strong>Queue Optimize</strong>.</p>
+      <p class="hint">Set your own date, start time, and delay. Works for any day — great for testing.</p>
       <div class="custom-row">
         <label class="field">
-          <span>Start Time</span>
+          <span>Date <small>(defaults to next Wednesday)</small></span>
+          <div class="date-row">
+            <input type="date" id="custom_date">
+            <button type="button" id="next_wed_btn" class="btn-next-wed">Next Wednesday</button>
+          </div>
+        </label>
+        <label class="field">
+          <span>Queue Time <small>(8:00 PM on that date)</small></span>
+          <input type="time" id="queue_time_override" value="20:00" step="1">
+        </label>
+        <label class="field">
+          <span>Start Time <small>(when you start your bot)</small></span>
           <input type="time" id="start_time" value="19:00" step="1">
         </label>
         <label class="field">

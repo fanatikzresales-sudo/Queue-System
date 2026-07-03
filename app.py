@@ -236,6 +236,8 @@ def optimize():
     demo = bool(data.get("demo", False))
     start_time = data.get("start_time", "")
     initial_delay_ms = int(data.get("initial_delay_ms", 60000))
+    custom_date = data.get("custom_date", "").strip()          # YYYY-MM-DD
+    queue_time_override = data.get("queue_time_override", "").strip()  # HH:MM
 
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
@@ -243,6 +245,28 @@ def optimize():
     try:
         if demo:
             target = create_demo_target(minutes_from_now=5.0, tz_key=tz_key)
+        elif custom_date:
+            # Build a target on the user's chosen date at their chosen queue time
+            tz = get_timezone(tz_key)
+            central = get_timezone("CDT")
+            try:
+                date_parsed = datetime.strptime(custom_date, "%Y-%m-%d")
+            except ValueError:
+                return jsonify({"error": "Invalid date. Use YYYY-MM-DD format."}), 400
+
+            if queue_time_override:
+                try:
+                    parts = queue_time_override.split(":")
+                    q_hour, q_min = int(parts[0]), int(parts[1])
+                except (ValueError, IndexError):
+                    return jsonify({"error": "Invalid queue time."}), 400
+            else:
+                q_hour, q_min = DEFAULT_QUEUE_HOUR, 0
+
+            # Build target in Central Time (Walmart's timezone) then localise for display
+            target = date_parsed.replace(
+                hour=q_hour, minute=q_min, second=0, microsecond=0, tzinfo=central
+            )
         else:
             target = next_walmart_queue_time(tz_key=tz_key)
 
@@ -253,12 +277,8 @@ def optimize():
             tz_key=tz_key,
             initial_delay_ms=initial_delay_ms,
         )
-        return jsonify(
-            {
-                "mode": "demo" if demo else "live",
-                **schedule_to_dict(schedule),
-            }
-        )
+        mode = "demo" if demo else ("custom" if custom_date else "live")
+        return jsonify({"mode": mode, **schedule_to_dict(schedule)})
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400
 

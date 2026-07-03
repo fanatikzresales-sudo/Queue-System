@@ -2,6 +2,9 @@
 const timezoneEl       = document.getElementById("timezone");
 const demoModeEl       = document.getElementById("demo_mode");
 const startTimeEl      = document.getElementById("start_time");
+const customDateEl     = document.getElementById("custom_date");
+const queueTimeEl      = document.getElementById("queue_time_override");
+const nextWedBtn       = document.getElementById("next_wed_btn");
 const initialDelayEl   = document.getElementById("initial_delay_ms");
 const delayPresetEl    = document.getElementById("delay_preset");
 const optimizeBtn      = document.getElementById("optimize_btn");
@@ -488,7 +491,7 @@ function renderResults(data) {
     : "Warning — last refresh may not align exactly";
 
   summaryEl.innerHTML = `
-    <div><span>Mode</span><span>${data.mode === "demo" ? "Demo test" : "Live · Wednesday 8 PM"}</span></div>
+    <div><span>Mode</span><span>${data.mode === "demo" ? "Demo test" : data.mode === "custom" ? "Custom date" : "Live · Wednesday 8 PM"}</span></div>
     <div><span>Timezone</span><span>${data.timezone}</span></div>
     <div><span>Queue live</span><span>${data.queue_live}</span></div>
     <div><span>Start</span><span>${data.start_time}</span></div>
@@ -582,6 +585,8 @@ async function runOptimize() {
         start_time: startTimeEl.value,
         initial_delay_ms: parseInt(initialDelayEl.value, 10),
         demo: demoModeEl.checked,
+        custom_date: customDateEl.value || "",
+        queue_time_override: queueTimeEl.value || "",
       }),
     });
     const data = await res.json();
@@ -623,6 +628,22 @@ demoModeEl.addEventListener("change", () => {
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+
+function nextWednesday() {
+  const now = new Date();
+  const daysUntilWed = (3 - now.getDay() + 7) % 7 || 7;
+  const wed = new Date(now);
+  wed.setDate(now.getDate() + daysUntilWed);
+  return wed.toISOString().split("T")[0];
+}
+
+customDateEl.value = nextWednesday();
+
+nextWedBtn.addEventListener("click", () => {
+  customDateEl.value = nextWednesday();
+  queueTimeEl.value = "20:00";
+});
+
 loadPresets();
 
 // Check for updates in the background
