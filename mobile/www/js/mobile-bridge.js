@@ -4,7 +4,10 @@
 (function (global) {
   'use strict';
 
-  const isCapacitor = global.CapNative && global.CapNative.Capacitor && global.CapNative.Capacitor.isNativePlatform && global.CapNative.Capacitor.isNativePlatform();
+  const isCapacitor = global.CapNative && global.CapNative.Capacitor &&
+    global.CapNative.Capacitor.isNativePlatform &&
+    global.CapNative.Capacitor.isNativePlatform();
+
   document.documentElement.classList.toggle('capacitor-native', isCapacitor);
   document.documentElement.classList.toggle('capacitor-web', !isCapacitor);
 
@@ -51,51 +54,74 @@
     return originalFetch(url, opts);
   };
 
-  const _fireOSNotification = global.fireOSNotification;
-  global.fireOSNotification = function fireOSNotification(title, body) {
-    if (global.CapNative && global.CapNative.LocalNotifications && global.MobileNotifications && global.MobileNotifications.isNative()) {
-      global.CapNative.LocalNotifications.schedule({
-        notifications: [{
-          id: Math.floor(Math.random() * 900000) + 100000,
-          title: String(title).slice(0, 64),
-          body: String(body).slice(0, 240),
-          schedule: { at: new Date(Date.now() + 500) },
-          sound: 'default',
-        }],
-      }).catch(() => {});
-    }
-    if (_fireOSNotification) _fireOSNotification(title, body);
-    else if ('Notification' in global && Notification.permission === 'granted') {
+  function showNotifError(msg) {
+    try {
+      alert(msg);
+    } catch (_) {}
+  }
+
+  global.fireOSNotification = function fireOSNotification(title, body, urgent) {
+    if (global.MobileNotifications && global.MobileNotifications.isNative()) {
+      global.MobileNotifications.notifyNow(title, body, urgent);
+    } else if ('Notification' in global && Notification.permission === 'granted') {
       new Notification(title, { body });
+    } else if ('Notification' in global && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(p => {
+        if (p === 'granted') new Notification(title, { body });
+      });
     }
   };
 
+  function patchPlanManager() {
+    if (!global.PM || global.PM.__mobilePatched) return;
+
+    const origActivate = global.PM.activate.bind(global.PM);
+    const origCancel = global.PM.cancel.bind(global.PM);
+
+    global.PM.activate = function (name, plan) {
+      const id = origActivate(name, plan);
+
+      if (global.MobileNotifications && global.MobileNotifications.isNative()) {
+        global.MobileNotifications.schedulePlanNotifications(id, name, plan).then(result => {
+          if (!result.ok) {
+            if (result.reason === 'permission_denied') {
+              showNotifError(
+                'Notifications are blocked.\n\n' +
+                'Go to Settings → Apps → FR Queue Optimizer → Notifications → Allow.\n\n' +
+                'On LDPlayer: enable notifications for the app in emulator settings.'
+              );
+            } else {
+              showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));
+            }
+          }
+        });
+      }
+
+      return id;
+    };
+
+    global.PM.cancel = function (id, silent) {
+      if (global.MobileNotifications) {
+        global.MobileNotifications.cancelPlanNotifications(id);
+      }
+      return origCancel(id, silent);
+    };
+
+    global.PM.__mobilePatched = true;
+  }
+
   global.addEventListener('DOMContentLoaded', () => {
-    if (global.MobileNotifications) global.MobileNotifications.init();
     const banner = document.getElementById('update-banner');
     if (banner && isCapacitor) banner.hidden = true;
+    patchPlanManager();
   });
 
-  // Patch plan manager to schedule native notifications when available
   global.addEventListener('load', () => {
+    patchPlanManager();
     const tryPatch = setInterval(() => {
-      if (!global.PM || global.PM.__mobilePatched) return;
-      const origActivate = global.PM.activate.bind(global.PM);
-      const origCancel = global.PM.cancel.bind(global.PM);
-      global.PM.activate = function (name, plan) {
-        const id = origActivate(name, plan);
-        if (global.MobileNotifications) {
-          global.MobileNotifications.schedulePlanNotifications(id, name, plan);
-        }
-        return id;
-      };
-      global.PM.cancel = function (id, silent) {
-        if (global.MobileNotifications) global.MobileNotifications.cancelPlanNotifications(id);
-        return origCancel(id, silent);
-      };
-      global.PM.__mobilePatched = true;
-      clearInterval(tryPatch);
+      patchPlanManager();
+      if (global.PM && global.PM.__mobilePatched) clearInterval(tryPatch);
     }, 200);
-    setTimeout(() => clearInterval(tryPatch), 10000);
+    setTimeout(() => clearInterval(tryPatch), 15000);
   });
 })(typeof window !== 'undefined' ? window : global);

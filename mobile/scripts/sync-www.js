@@ -35,12 +35,12 @@ function timezoneOptionsHtml() {
 
 function scriptBlock(extra = '') {
   return `
+  <script src="js/cap-native.js"></script>
   <script src="js/vendor/luxon.min.js"></script>
   <script src="js/scheduler.js"></script>
   <script src="js/local-api.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/mobile-bridge.js"></script>
-  <script src="js/cap-native.js"></script>
   ${extra}`;
 }
 
