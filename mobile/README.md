@@ -6,7 +6,20 @@ Built with [Capacitor](https://capacitorjs.com/) (same UI as the desktop app, sc
 
 ---
 
-## Requirements
+## Share / install (no build required)
+
+**Friends do not need Android Studio or `build-android.bat`.** Give them the APK:
+
+| How | Link |
+|-----|------|
+| **GitHub Releases** (best) | https://github.com/fanatikzresales-sudo/Queue-System/releases — download `FRQueueOptimizer-Android.apk` |
+| **Manual share** | Send the APK file from `android/app/build/outputs/apk/debug/app-debug.apk` (Google Drive, Discord, etc.) |
+
+Install: open the APK on the phone/emulator → allow unknown sources → enable notifications in app settings.
+
+---
+
+## Requirements (builders only)
 
 | Platform | What you need |
 |----------|----------------|

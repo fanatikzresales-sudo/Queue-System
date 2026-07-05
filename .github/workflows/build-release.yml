@@ -91,10 +91,55 @@ jobs:
           name: mac-app
           path: dist/FRQueueOptimizer-Mac.zip
 
+  # ── Android APK (mobile companion) ───────────────────────────────────────────
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run sync:www
+          npm run build:js
+          npx cap sync android
+          cd android
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Rename APK for release
+        run: cp mobile/android/app/build/outputs/apk/debug/app-debug.apk mobile/FRQueueOptimizer-Android.apk
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/FRQueueOptimizer-Android.apk
+
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Create Release
-    needs: [build-windows, build-mac]
+    needs: [build-windows, build-mac, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -111,6 +156,12 @@ jobs:
           name: mac-app
           path: release-files
 
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: release-files
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -123,6 +174,13 @@ jobs:
             |----------|------|
             | **Windows** | `FRQueueOptimizer.exe` — double-click to open |
             | **Mac** | `FRQueueOptimizer-Mac.zip` — unzip, drag to Applications |
+            | **Android** | `FRQueueOptimizer-Android.apk` — install on phone or LDPlayer (enable unknown sources) |
+
+            ### Android install
+            1. Download `FRQueueOptimizer-Android.apk`
+            2. Open it on your Android device or emulator (LDPlayer, BlueStacks, etc.)
+            3. Allow install from unknown sources if prompted
+            4. Open the app → enable notifications → tap **Test alert**
 
             ### Auto-update
             When you open the app, it checks for updates automatically.
@@ -136,5 +194,6 @@ jobs:
           files: |
             release-files/FRQueueOptimizer.exe
             release-files/FRQueueOptimizer-Mac.zip
+            release-files/FRQueueOptimizer-Android.apk
           draft: false
           prerelease: false
