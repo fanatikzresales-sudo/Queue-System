@@ -4,7 +4,7 @@
   "description": "FR Queue Optimizer — Android & iOS companion app",
   "private": true,
   "scripts": {
-    "generate:icons": "python3 scripts/generate-app-icons.py",
+    "generate:icons": "node scripts/generate-app-icons.js",
     "sync:www": "node scripts/sync-www.js",
     "build:js": "esbuild src/cap-native.js --bundle --outfile=www/js/cap-native.js --format=iife --platform=browser",
     "build": "npm run generate:icons && npm run sync:www && npm run build:js",
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.25.0",
+    "sharp": "^0.34.5"
   }
 }
