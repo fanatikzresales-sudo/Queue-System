@@ -75,6 +75,17 @@ PRESET_BY_FINAL_DELAY: list[tuple[int, str, str, list[int]]] = [
     (1_000,  "Drop to 1,000 ms",  "Ultra-precise — maximum accuracy at queue go-live",           [45, 30, 60]),
 ]
 
+# Late-drop presets — fixed switch window (minutes before queue).
+# (switch_minutes, final_delay_ms, label, description, preferred_start_windows_min)
+PRESET_BY_DROP_WINDOW: list[tuple[int, int, str, str, list[int]]] = [
+    (5, 3_000, "Drop 5 min before · 3,000 ms", "Late drop — 5 min before queue, balanced final delay", [60, 45, 30, 20]),
+    (5, 2_000, "Drop 5 min before · 2,000 ms", "Late drop — 5 min before queue, tighter refresh", [45, 30, 20]),
+    (3, 2_000, "Drop 3 min before · 2,000 ms", "Very late drop — strong precision near go-live", [45, 30, 20]),
+    (3, 1_500, "Drop 3 min before · 1,500 ms", "Very late drop — popular for Pokemon-style timing", [30, 45, 20]),
+    (2, 1_500, "Drop 2 min before · 1,500 ms", "Ultra-late drop — last-minute switch", [30, 20, 45]),
+    (2, 1_000, "Drop 2 min before · 1,000 ms", "Ultra-late drop — maximum precision at queue live", [30, 20]),
+]
+
 # All start windows to search (minutes before queue, label).
 ALL_START_WINDOWS: list[tuple[int, str]] = [
     (120, "2 hours early"),
@@ -146,6 +157,8 @@ class PresetPlan:
     timing_mode: str = TimingMode.INSTANT.value
     effective_switch_ts_ms: int = 0  # When final delay actually applies
     effective_switch_time_display: str = ""
+    switch_minutes_before: float = 0  # Minutes before queue when final delay phase begins
+    preset_category: str = "standard"  # "standard" | "late_drop"
 
 
 @dataclass(frozen=True)
@@ -446,6 +459,7 @@ def build_schedule(
     tz_key: str = "CDT",
     initial_delay_ms: int | None = None,
     switch_minutes_before: float | None = None,
+    target_final_delay_ms: int | None = None,
     timing_mode: TimingMode | str = TimingMode.INSTANT,
     **_kwargs,
 ) -> Schedule:
@@ -461,13 +475,34 @@ def build_schedule(
         timing_mode = parse_timing_mode(timing_mode)
 
     delay = initial_delay_ms if initial_delay_ms is not None else 60_000
-    steps = build_two_step_schedule(
-        target=target,
-        start=start,
-        initial_delay_ms=delay,
-        switch_minutes_before=switch_minutes_before,
-        min_delay_ms=min_delay_ms,
-    )
+
+    if target_final_delay_ms is not None:
+        switch_candidates = (
+            [switch_minutes_before]
+            if switch_minutes_before is not None
+            else None
+        )
+        steps = _find_two_step_with_final_delay(
+            target=target,
+            start=start,
+            initial_delay_ms=delay,
+            target_final_delay_ms=target_final_delay_ms,
+            min_delay_ms=min_delay_ms,
+            switch_candidates=switch_candidates,
+        )
+        if steps is None:
+            raise ValueError(
+                "Could not build a schedule with this start time, delay, and target final delay. "
+                "Try a different starting delay or drop window."
+            )
+    else:
+        steps = build_two_step_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=delay,
+            switch_minutes_before=switch_minutes_before,
+            min_delay_ms=min_delay_ms,
+        )
 
     if timing_mode == TimingMode.DEFERRED:
         command_at = drop_command_at(steps[1].at, delay, timing_mode)
@@ -521,6 +556,65 @@ def format_minutes_before(minutes: float) -> str:
     return f"{seconds:.1f} sec"
 
 
+def _append_preset_plan(
+    plans: list[PresetPlan],
+    *,
+    target: datetime,
+    tz: ZoneInfo,
+    timing_mode: TimingMode,
+    label: str,
+    description: str,
+    best_steps: list[DelayStep],
+    best_window: int,
+    window_labels: dict[int, str],
+    preset_category: str,
+) -> None:
+    def _fmt_clock(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+
+    s1, s2 = best_steps[0], best_steps[1]
+    effective_switch = s2.at
+    command_at = drop_command_at(effective_switch, s1.delay_ms, timing_mode)
+    if command_at < s1.at:
+        return
+
+    drop_minutes_before = (target - command_at).total_seconds() / 60
+    switch_minutes_before = (target - effective_switch).total_seconds() / 60
+    window_label = window_labels.get(best_window, f"{best_window} min early")
+    plans.append(
+        PresetPlan(
+            label=label,
+            description=description,
+            minutes_early=best_window,
+            start_window_label=window_label,
+            start_delay_ms=s1.delay_ms,
+            drop_minutes_before=drop_minutes_before,
+            final_delay_ms=s2.delay_ms,
+            verified=True,
+            start_time_display=_fmt_clock(s1.at),
+            drop_time_display=_fmt_clock(command_at),
+            queue_time_display=_fmt_clock(target),
+            start_delay_label=format_duration_ms(s1.delay_ms),
+            final_delay_label=format_duration_ms(s2.delay_ms),
+            drop_minutes_label=format_minutes_before(drop_minutes_before),
+            refreshes_phase1=s1.refreshes_until_next or 0,
+            refreshes_phase2=s2.refreshes_until_next or 0,
+            start_h=s1.at.astimezone(tz).hour,
+            start_m=s1.at.astimezone(tz).minute,
+            start_s=s1.at.astimezone(tz).second,
+            start_ts_ms=int(s1.at.timestamp() * 1000),
+            drop_ts_ms=int(command_at.timestamp() * 1000),
+            queue_ts_ms=int(target.timestamp() * 1000),
+            timing_mode=timing_mode.value,
+            effective_switch_ts_ms=int(effective_switch.timestamp() * 1000),
+            effective_switch_time_display=_fmt_clock(effective_switch),
+            switch_minutes_before=switch_minutes_before,
+            preset_category=preset_category,
+        )
+    )
+
+
 def preset_schedules(
     *,
     target: datetime,
@@ -540,28 +634,21 @@ def preset_schedules(
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     plans: list[PresetPlan] = []
-
-    def _fmt_clock(dt: datetime) -> str:
-        local = dt.astimezone(tz)
-        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+    window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
 
     for final_delay_ms, label, description, preferred_windows in PRESET_BY_FINAL_DELAY:
-        # Build a prioritised list of start windows: preferred ones first, rest after.
         window_order = list(dict.fromkeys(
             preferred_windows + [w for w, _ in ALL_START_WINDOWS]
         ))
-        window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
 
         best_steps: list[DelayStep] | None = None
         best_window: int = 0
-        best_start_delay: int = 0
 
         for window_min in window_order:
             start = target - timedelta(minutes=window_min)
             for start_delay in PRESET_START_DELAY_PREFERENCES:
                 if start_delay >= window_min * 60 * 1000:
                     continue
-                # Only accept plans that land on our target final delay.
                 try:
                     steps = _find_two_step_with_final_delay(
                         target=target,
@@ -574,7 +661,6 @@ def preset_schedules(
                 if steps is not None:
                     best_steps = steps
                     best_window = window_min
-                    best_start_delay = start_delay
                     break
             if best_steps is not None:
                 break
@@ -582,43 +668,65 @@ def preset_schedules(
         if best_steps is None or len(best_steps) < 2:
             continue
 
-        s1, s2 = best_steps[0], best_steps[1]
-        effective_switch = s2.at
-        command_at = drop_command_at(effective_switch, s1.delay_ms, timing_mode)
-        if command_at < s1.at:
+        _append_preset_plan(
+            plans,
+            target=target,
+            tz=tz,
+            timing_mode=timing_mode,
+            label=label,
+            description=description,
+            best_steps=best_steps,
+            best_window=best_window,
+            window_labels=window_labels,
+            preset_category="standard",
+        )
+
+    for switch_min, final_delay_ms, label, description, preferred_windows in PRESET_BY_DROP_WINDOW:
+        window_order = list(dict.fromkeys(
+            preferred_windows + [w for w, _ in ALL_START_WINDOWS]
+        ))
+
+        best_steps: list[DelayStep] | None = None
+        best_window: int = 0
+
+        for window_min in window_order:
+            start = target - timedelta(minutes=window_min)
+            for start_delay in PRESET_START_DELAY_PREFERENCES:
+                if start_delay >= window_min * 60 * 1000:
+                    continue
+                try:
+                    steps = _find_two_step_with_final_delay(
+                        target=target,
+                        start=start,
+                        initial_delay_ms=start_delay,
+                        target_final_delay_ms=final_delay_ms,
+                        switch_candidates=[switch_min],
+                    )
+                except ValueError:
+                    continue
+                if steps is not None:
+                    best_steps = steps
+                    best_window = window_min
+                    break
+            if best_steps is not None:
+                break
+
+        if best_steps is None or len(best_steps) < 2:
             continue
 
-        drop_minutes_before = (target - command_at).total_seconds() / 60
-        window_label = window_labels.get(best_window, f"{best_window} min early")
-        plans.append(
-            PresetPlan(
-                label=label,
-                description=description,
-                minutes_early=best_window,
-                start_window_label=window_label,
-                start_delay_ms=s1.delay_ms,
-                drop_minutes_before=drop_minutes_before,
-                final_delay_ms=s2.delay_ms,
-                verified=True,
-                start_time_display=_fmt_clock(s1.at),
-                drop_time_display=_fmt_clock(command_at),
-                queue_time_display=_fmt_clock(target),
-                start_delay_label=format_duration_ms(s1.delay_ms),
-                final_delay_label=format_duration_ms(s2.delay_ms),
-                drop_minutes_label=format_minutes_before(drop_minutes_before),
-                refreshes_phase1=s1.refreshes_until_next or 0,
-                refreshes_phase2=s2.refreshes_until_next or 0,
-                start_h=s1.at.astimezone(tz).hour,
-                start_m=s1.at.astimezone(tz).minute,
-                start_s=s1.at.astimezone(tz).second,
-                start_ts_ms=int(s1.at.timestamp() * 1000),
-                drop_ts_ms=int(command_at.timestamp() * 1000),
-                queue_ts_ms=int(target.timestamp() * 1000),
-                timing_mode=timing_mode.value,
-                effective_switch_ts_ms=int(effective_switch.timestamp() * 1000),
-                effective_switch_time_display=_fmt_clock(effective_switch),
-            )
+        _append_preset_plan(
+            plans,
+            target=target,
+            tz=tz,
+            timing_mode=timing_mode,
+            label=label,
+            description=description,
+            best_steps=best_steps,
+            best_window=best_window,
+            window_labels=window_labels,
+            preset_category="late_drop",
         )
+
     return plans
 
 
@@ -629,13 +737,19 @@ def _find_two_step_with_final_delay(
     initial_delay_ms: int,
     target_final_delay_ms: int,
     min_delay_ms: int = 250,
+    switch_candidates: Iterable[float] | None = None,
 ) -> list[DelayStep] | None:
     """
     Build a two-step schedule where the second step uses exactly target_final_delay_ms.
-    Searches switch windows from latest (10 min) to earliest (2 min).
+    Searches switch windows from latest (10 min) to earliest (2 min) unless overridden.
     Returns None if no exact alignment is found.
     """
-    for switch_min in DEFAULT_SWITCH_MINUTES_CANDIDATES:
+    candidates = (
+        list(switch_candidates)
+        if switch_candidates is not None
+        else DEFAULT_SWITCH_MINUTES_CANDIDATES
+    )
+    for switch_min in candidates:
         ideal_switch = target - timedelta(minutes=switch_min)
         if ideal_switch <= start:
             continue

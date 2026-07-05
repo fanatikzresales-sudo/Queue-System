@@ -62,6 +62,10 @@ The app pre-computes the best plan for each common final delay:
 
 Click **▶ Watch Demo** on any card to run a live 3-minute simulation and verify it lands on queue time exactly.
 
+### Late Drop presets
+
+A second row of presets drops **2–5 minutes before queue** — shorter runs when you want to start closer to go-live.
+
 ---
 
 ## Build from source
