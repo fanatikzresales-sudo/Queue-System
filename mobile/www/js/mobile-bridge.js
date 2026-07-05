@@ -69,8 +69,8 @@
     banner.hidden = false;
     if (statusEl) {
       statusEl.textContent = enabled
-        ? 'Notifications are ON. Use "Test alert" to verify, then activate a plan.'
-        : 'Notifications are OFF. Tap "Open Notification Settings" and turn them on.';
+        ? 'Notifications ON. Alerts fire 10 min before start & drop — use Test alert, then activate a plan.'
+        : 'Notifications OFF. Tap "Open Notification Settings" and turn them on.';
       statusEl.classList.toggle('npb-status-ok', enabled);
     }
   }
@@ -132,16 +132,26 @@
 
       if (global.MobileNotifications && global.MobileNotifications.isNative()) {
         global.MobileNotifications.schedulePlanNotifications(id, name, plan).then(result => {
-          if (!result.ok) {
-            if (result.reason === 'permission_denied') {
+          if (result.ok) {
+            const exact = result.exactAlarm === false
+              ? '\n\nTip: also enable "Alarms & reminders" in app settings for on-time alerts.'
+              : '';
+            showNotifError(
+              `Scheduled ${result.scheduled} alerts for "${name}".\n` +
+              `• 10 min before start\n` +
+              `• At start time\n` +
+              `• 10 min before drop\n` +
+              `• At drop time\n` +
+              `You can leave the app — alerts will still fire.${exact}`
+            );
+          } else if (result.reason === 'permission_denied') {
               showNotifError(
                 'Notifications are blocked.\n\n' +
                 'Go to Settings → Apps → FR Queue Optimizer → Notifications → Allow.\n\n' +
                 'On LDPlayer: enable notifications for the app in emulator settings.'
               );
-            } else {
-              showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));
-            }
+          } else {
+            showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));
           }
         });
       }

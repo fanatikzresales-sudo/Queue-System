@@ -99,7 +99,7 @@ fs.writeFileSync(path.join(WWW, 'index.html'), `${mobileHead('FR Queue Optimizer
     <div id="notif-permission-banner" class="notif-permission-banner" hidden>
       <div class="npb-inner">
         <strong>Enable drop alerts</strong>
-        <p id="npb-status">Notifications are required for start/drop reminders when you leave the app.</p>
+        <p id="npb-status">Notifications are required for 10-min start/drop reminders when you leave the app.</p>
         <p class="npb-hint">LDPlayer often skips the &quot;Allow&quot; popup — use the buttons below.</p>
         <div class="npb-btns">
           <button type="button" id="npb-enable-btn" class="primary npb-btn">Open Notification Settings</button>

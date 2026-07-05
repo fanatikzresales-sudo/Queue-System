@@ -124,6 +124,7 @@ function fireOSNotification(title, body) {
 
 const PM = (() => {
   const plans = {};   // id -> { name, plan, timers, countdownInterval, popupId }
+  const DROP_REMINDER_MINUTES = window.__DROP_REMINDER_MINUTES || 5;
 
   // ── popup helpers ──────────────────────────────────────────────────────────
 
@@ -265,7 +266,7 @@ const PM = (() => {
     _makePopup(_dropPopupId(id), `
       <div class="notif-header notif-header-urgent">
         <span class="notif-icon">⚡</span>
-        <span class="notif-title">Drop in 5 min — ${name}</span>
+        <span class="notif-title">Drop in ${DROP_REMINDER_MINUTES} min — ${name}</span>
         <button class="notif-close">✕</button>
       </div>
       <div class="notif-drop-body">
@@ -282,7 +283,7 @@ const PM = (() => {
 
     // Real OS notification — this is the critical "drop now" alert
     fireOSNotification(
-      `⚡ ${name} — Drop in 5 minutes!`,
+      `⚡ ${name} — Drop in ${DROP_REMINDER_MINUTES} minutes!`,
       `At ${plan.drop_time_display}, change your delay to ${plan.final_delay_label}. ` +
       `Next refresh hits ${plan.queue_time_display} exactly.`
     );
@@ -295,7 +296,7 @@ const PM = (() => {
     const now = Date.now();
     const timers = [];
 
-    const msUntilDropReminder = plan.drop_ts_ms - (5 * 60 * 1000) - now;
+    const msUntilDropReminder = plan.drop_ts_ms - (DROP_REMINDER_MINUTES * 60 * 1000) - now;
 
     if (msUntilDropReminder > 0) {
       timers.push(setTimeout(() => _showDropPopup(id, name, plan), msUntilDropReminder));

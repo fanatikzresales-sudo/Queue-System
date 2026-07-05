@@ -5,6 +5,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 
 const AppSettings = registerPlugin('AppSettings');
 
+window.__DROP_REMINDER_MINUTES = 10;
 window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings };
 
 async function initNativeNotifications() {
@@ -30,6 +31,12 @@ async function initNativeNotifications() {
     ];
     for (const ch of channels) {
       await LocalNotifications.createChannel(ch);
+    }
+    if (typeof LocalNotifications.checkExactNotificationSetting === 'function') {
+      const exact = await LocalNotifications.checkExactNotificationSetting();
+      if (exact.exact_alarm !== 'granted') {
+        console.warn('Exact alarm permission not granted — scheduled alerts may be late');
+      }
     }
   } catch (e) {
     console.warn('Notification channel init:', e);

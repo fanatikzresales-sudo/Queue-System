@@ -6,6 +6,11 @@
 
   const CHANNEL_ALERTS = 'fr_queue_alerts';
   const CHANNEL_URGENT = 'fr_queue_urgent';
+  /** Match desktop lead time: alert this many minutes before start / drop command. */
+  const REMINDER_MINUTES = 10;
+  const REMINDER_MS = REMINDER_MINUTES * 60 * 1000;
+  const MIN_FUTURE_MS = 3000;
+  const NOTIF_KINDS = [0, 1, 2, 3, 4, 5];
 
   let channelsReady = false;
 
@@ -79,6 +84,40 @@
     return false;
   }
 
+  async function openExactAlarmSettings() {
+    if (appSettings() && typeof appSettings().openExactAlarmSettings === 'function') {
+      await appSettings().openExactAlarmSettings();
+      return true;
+    }
+    if (ln() && typeof ln().changeExactNotificationSetting === 'function') {
+      await ln().changeExactNotificationSetting();
+      return true;
+    }
+    return false;
+  }
+
+  async function hasExactAlarmPermission() {
+    if (!ln() || typeof ln().checkExactNotificationSetting !== 'function') return true;
+    try {
+      const status = await ln().checkExactNotificationSetting();
+      return status.exact_alarm === 'granted';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  async function ensureExactAlarmPermission() {
+    if (await hasExactAlarmPermission()) return true;
+    const open = confirm(
+      'For on-time drop alerts, enable "Alarms & reminders" for FR Queue Optimizer.\n\n' +
+      'Tap OK to open that setting, turn it ON, then come back and activate your plan again.'
+    );
+    if (open) {
+      await openExactAlarmSettings();
+    }
+    return hasExactAlarmPermission();
+  }
+
   /** Request permission — shows system dialog on Android 13+ only. */
   async function requestPermissionDialog() {
     if (!ln()) return false;
@@ -136,6 +175,117 @@
     return { at: new Date(whenMs), allowWhileIdle: true };
   }
 
+  function baseNotif(id, title, body, channelId, whenMs, extra) {
+    return {
+      id,
+      title: String(title).slice(0, 64),
+      body: String(body).slice(0, 240),
+      channelId,
+      schedule: scheduleAt(whenMs),
+      sound: 'default',
+      smallIcon: 'ic_stat_icon',
+      autoCancel: true,
+      extra,
+    };
+  }
+
+  function buildPlanNotifications(planId, name, plan, now) {
+    const notifications = [];
+
+    notifications.push(baseNotif(
+      notifId(planId, 0),
+      `${name} — Plan active`,
+      `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
+      CHANNEL_ALERTS,
+      now + 1500,
+      { planId, type: 'confirmed' }
+    ));
+
+    const startReminderAt = plan.start_ts_ms - REMINDER_MS;
+    if (startReminderAt > now + MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 1),
+        `${name} — Start in ${REMINDER_MINUTES} minutes`,
+        `At ${plan.start_time_display}, set delay to ${plan.start_delay_label}.`,
+        CHANNEL_ALERTS,
+        startReminderAt,
+        { planId, type: 'start_reminder' }
+      ));
+    }
+
+    if (plan.start_ts_ms > now + MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 2),
+        `${name} — Start your task`,
+        `Set delay to ${plan.start_delay_label} now (${plan.start_time_display}).`,
+        CHANNEL_ALERTS,
+        plan.start_ts_ms,
+        { planId, type: 'start_now' }
+      ));
+    }
+
+    const dropReminderAt = plan.drop_ts_ms - REMINDER_MS;
+    if (dropReminderAt > now + MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 3),
+        `⚡ ${name} — Drop in ${REMINDER_MINUTES} minutes`,
+        `At ${plan.drop_time_display}, change delay to ${plan.final_delay_label}.`,
+        CHANNEL_URGENT,
+        dropReminderAt,
+        { planId, type: 'drop_reminder' }
+      ));
+    } else if (plan.drop_ts_ms - now > MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 3),
+        `⚡ ${name} — Drop in ${REMINDER_MINUTES} minutes`,
+        `At ${plan.drop_time_display}, change delay to ${plan.final_delay_label}.`,
+        CHANNEL_URGENT,
+        now + 2000,
+        { planId, type: 'drop_reminder' }
+      ));
+    }
+
+    if (plan.drop_ts_ms > now + MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 4),
+        `⚡ ${name} — DROP NOW`,
+        `Change delay to ${plan.final_delay_label} — queue live at ${plan.queue_time_display}.`,
+        CHANNEL_URGENT,
+        plan.drop_ts_ms,
+        { planId, type: 'drop_now' }
+      ));
+    }
+
+    if (plan.queue_ts_ms && plan.queue_ts_ms > now + MIN_FUTURE_MS) {
+      notifications.push(baseNotif(
+        notifId(planId, 5),
+        `${name} — Queue live`,
+        `Queue goes live now at ${plan.queue_time_display}.`,
+        CHANNEL_ALERTS,
+        plan.queue_ts_ms,
+        { planId, type: 'queue_live' }
+      ));
+    }
+
+    return notifications;
+  }
+
+  async function scheduleNotifications(notifications) {
+    if (!notifications.length) return;
+    try {
+      await ln().schedule({ notifications });
+      return;
+    } catch (err) {
+      const fallback = notifications.map(n => {
+        const copy = { ...n };
+        delete copy.smallIcon;
+        return copy;
+      });
+      await ln().schedule({ notifications: fallback });
+      console.warn('Scheduled without smallIcon after error:', err);
+    }
+  }
+
   async function schedulePlanNotifications(planId, name, plan) {
     if (!isNative() || !ln()) return { ok: false, reason: 'not_native' };
 
@@ -144,77 +294,26 @@
       return { ok: false, reason: 'permission_denied' };
     }
 
+    await ensureExactAlarmPermission();
+
     const now = Date.now();
-    const notifications = [];
-
-    notifications.push({
-      id: notifId(planId, 0),
-      title: `${name} — Plan active`,
-      body: `Drop reminder at ${plan.drop_time_display}. You can leave the app — alerts will still fire.`,
-      channelId: CHANNEL_ALERTS,
-      schedule: scheduleAt(now + 1500),
-      sound: 'default',
-      smallIcon: 'ic_stat_icon',
-      autoCancel: true,
-      extra: { planId, type: 'confirmed' },
-    });
-
-    if (plan.start_ts_ms > now + 3000) {
-      notifications.push({
-        id: notifId(planId, 1),
-        title: `${name} — Start your task`,
-        body: `Set delay to ${plan.start_delay_label} at ${plan.start_time_display}`,
-        channelId: CHANNEL_ALERTS,
-        schedule: scheduleAt(plan.start_ts_ms),
-        sound: 'default',
-        smallIcon: 'ic_stat_icon',
-        extra: { planId, type: 'start' },
-      });
-    }
-
-    const dropReminderAt = plan.drop_ts_ms - 5 * 60 * 1000;
-    if (dropReminderAt > now + 3000) {
-      notifications.push({
-        id: notifId(planId, 2),
-        title: `⚡ ${name} — Drop in 5 minutes`,
-        body: `At ${plan.drop_time_display}, change delay to ${plan.final_delay_label}`,
-        channelId: CHANNEL_URGENT,
-        schedule: scheduleAt(dropReminderAt),
-        sound: 'default',
-        smallIcon: 'ic_stat_icon',
-        extra: { planId, type: 'drop_reminder' },
-      });
-    }
-
-    if (plan.drop_ts_ms > now + 3000) {
-      notifications.push({
-        id: notifId(planId, 3),
-        title: `⚡ ${name} — DROP NOW`,
-        body: `Change delay to ${plan.final_delay_label} — queue live at ${plan.queue_time_display}`,
-        channelId: CHANNEL_URGENT,
-        schedule: scheduleAt(plan.drop_ts_ms),
-        sound: 'default',
-        smallIcon: 'ic_stat_icon',
-        extra: { planId, type: 'drop_now' },
-      });
-    }
-
-    if (plan.queue_ts_ms && plan.queue_ts_ms > now + 3000) {
-      notifications.push({
-        id: notifId(planId, 4),
-        title: `${name} — Queue live`,
-        body: `Queue goes live now at ${plan.queue_time_display}`,
-        channelId: CHANNEL_ALERTS,
-        schedule: scheduleAt(plan.queue_ts_ms),
-        sound: 'default',
-        smallIcon: 'ic_stat_icon',
-        extra: { planId, type: 'queue_live' },
-      });
-    }
+    const notifications = buildPlanNotifications(planId, name, plan, now);
 
     try {
-      await ln().schedule({ notifications });
-      return { ok: true, scheduled: notifications.length };
+      await scheduleNotifications(notifications);
+      let pendingCount = notifications.length;
+      if (typeof ln().getPending === 'function') {
+        try {
+          const pending = await ln().getPending();
+          pendingCount = pending.notifications ? pending.notifications.length : pendingCount;
+        } catch (_) {}
+      }
+      return {
+        ok: true,
+        scheduled: notifications.length,
+        pending: pendingCount,
+        exactAlarm: await hasExactAlarmPermission(),
+      };
     } catch (err) {
       console.error('schedulePlanNotifications failed', err);
       return { ok: false, reason: err.message || 'schedule_failed' };
@@ -227,18 +326,18 @@
     const allowed = await ensurePermissionsWithPrompt();
     if (!allowed) return { ok: false, reason: 'permission_denied' };
 
+    await ensureExactAlarmPermission();
+
     try {
-      await ln().schedule({
-        notifications: [{
-          id: 999001,
-          title: 'FR Queue Optimizer — Test alert',
-          body: 'If you see this, background notifications are working!',
-          channelId: CHANNEL_URGENT,
-          schedule: scheduleAt(Date.now() + 5000),
-          sound: 'default',
-          smallIcon: 'ic_stat_icon',
-        }],
-      });
+      await scheduleNotifications([{
+        id: 999001,
+        title: 'FR Queue Optimizer — Test alert',
+        body: 'If you see this, background notifications are working!',
+        channelId: CHANNEL_URGENT,
+        schedule: scheduleAt(Date.now() + 5000),
+        sound: 'default',
+        smallIcon: 'ic_stat_icon',
+      }]);
       return { ok: true, message: 'Test alert in 5 seconds — switch to another app now.' };
     } catch (err) {
       return { ok: false, reason: err.message };
@@ -247,7 +346,7 @@
 
   async function cancelPlanNotifications(planId) {
     if (!ln()) return;
-    const ids = [0, 1, 2, 3, 4].map(k => ({ id: notifId(planId, k) }));
+    const ids = NOTIF_KINDS.map(k => ({ id: notifId(planId, k) }));
     try {
       await ln().cancel({ notifications: ids });
     } catch (_) {}
@@ -257,17 +356,15 @@
     if (!isNative() || !ln()) return false;
     if (!(await ensurePermissions())) return false;
     try {
-      await ln().schedule({
-        notifications: [{
-          id: Math.floor(Math.random() * 800000) + 100000,
-          title: String(title).slice(0, 64),
-          body: String(body).slice(0, 240),
-          channelId: urgent ? CHANNEL_URGENT : CHANNEL_ALERTS,
-          schedule: scheduleAt(Date.now() + 500),
-          sound: 'default',
-          smallIcon: 'ic_stat_icon',
-        }],
-      });
+      await scheduleNotifications([{
+        id: Math.floor(Math.random() * 800000) + 100000,
+        title: String(title).slice(0, 64),
+        body: String(body).slice(0, 240),
+        channelId: urgent ? CHANNEL_URGENT : CHANNEL_ALERTS,
+        schedule: scheduleAt(Date.now() + 500),
+        sound: 'default',
+        smallIcon: 'ic_stat_icon',
+      }]);
       return true;
     } catch (_) {
       return false;
@@ -275,8 +372,11 @@
   }
 
   global.MobileNotifications = {
+    REMINDER_MINUTES,
     areNotificationsEnabled,
+    hasExactAlarmPermission,
     openNotificationSettings,
+    openExactAlarmSettings,
     requestPermissionDialog,
     ensurePermissions,
     ensurePermissionsWithPrompt,
