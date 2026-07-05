@@ -83,9 +83,15 @@
 
     if (enableBtn) {
       enableBtn.addEventListener('click', async () => {
-        await global.MobileNotifications.requestPermissionDialog();
-        if (!(await global.MobileNotifications.areNotificationsEnabled())) {
-          await global.MobileNotifications.openNotificationSettings();
+        const result = await global.MobileNotifications.openNotificationSettings();
+        if (!result.ok) {
+          alert(
+            'Could not open settings automatically.\n\n' +
+            'On LDPlayer, open Settings manually:\n' +
+            'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
+          );
+        } else if (result.fallback === 'app_details') {
+          alert('Opened app settings. Tap Notifications and turn them ON.');
         }
         setTimeout(refreshNotifBanner, 1500);
       });

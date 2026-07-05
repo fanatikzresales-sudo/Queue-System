@@ -77,11 +77,28 @@
   }
 
   async function openNotificationSettings() {
-    if (appSettings() && typeof appSettings().openNotificationSettings === 'function') {
-      await appSettings().openNotificationSettings();
-      return true;
+    const settings = appSettings();
+    if (!settings) {
+      return { ok: false, reason: 'plugin_missing' };
     }
-    return false;
+    try {
+      if (typeof settings.openNotificationSettings === 'function') {
+        await settings.openNotificationSettings();
+        return { ok: true };
+      }
+    } catch (err) {
+      console.warn('openNotificationSettings failed:', err);
+    }
+    try {
+      if (typeof settings.openAppDetails === 'function') {
+        await settings.openAppDetails();
+        return { ok: true, fallback: 'app_details' };
+      }
+    } catch (err) {
+      console.warn('openAppDetails failed:', err);
+      return { ok: false, reason: err.message || 'open_failed' };
+    }
+    return { ok: false, reason: 'plugin_missing' };
   }
 
   async function openExactAlarmSettings() {
@@ -166,7 +183,16 @@
       'then come back and tap "Test alert".'
     );
     if (open) {
-      await openNotificationSettings();
+      const opened = await openNotificationSettings();
+      if (!opened.ok) {
+        alert(
+          'Could not open settings automatically.\n\n' +
+          'On LDPlayer:\n' +
+          '1. Open the Settings app\n' +
+          '2. Apps → FR Queue Optimizer\n' +
+          '3. Notifications → Allow'
+        );
+      }
     }
     return areNotificationsEnabled();
   }
