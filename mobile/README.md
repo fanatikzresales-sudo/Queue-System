@@ -10,7 +10,7 @@ Built with [Capacitor](https://capacitorjs.com/) (same UI as the desktop app, sc
 
 | Platform | What you need |
 |----------|----------------|
-| **Android** | [Android Studio](https://developer.android.com/studio) (SDK 34+), Java 17 |
+| **Android** | [Android Studio](https://developer.android.com/studio) (SDK 34+), **Java JDK 21** |
 | **iOS** | Mac with [Xcode 15+](https://developer.apple.com/xcode/) and Apple Developer account (for device/TestFlight) |
 | **Both** | Node.js 18+ |
 
