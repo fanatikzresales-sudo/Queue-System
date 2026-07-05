@@ -262,6 +262,27 @@ select {
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
 }
 
+.preset-group-label {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.preset-group-label:not(:first-child) {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.preset-group-hint {
+  grid-column: 1 / -1;
+  margin: -0.5rem 0 0.25rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .preset-card {
   background: var(--panel);
   border: 1.5px solid var(--panel-border);

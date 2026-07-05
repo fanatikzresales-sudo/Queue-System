@@ -405,16 +405,8 @@ function showNameInput({ anchorEl, defaultName: defName, onActivate }) {
   });
 }
 
-function renderPresets(data) {
-  queueLiveLabel.textContent = `Queue goes live: ${data.queue_live}`;
-  if (data.timing_mode) setTimingMode(data.timing_mode);
-
-  if (!data.plans.length) {
-    presetGridEl.innerHTML = '<p class="placeholder">No plans available.</p>';
-    return;
-  }
-
-  presetGridEl.innerHTML = data.plans.map((p, i) => `
+function renderPresetCard(p, i) {
+  return `
     <div class="preset-card" data-idx="${i}"
          data-start-h="${p.start_h}" data-start-m="${p.start_m}" data-start-s="${p.start_s}"
          data-delay="${p.start_delay_ms}">
@@ -430,6 +422,7 @@ function renderPresets(data) {
       <div class="pc-tag-row">
         <span class="pc-tag">Start ${p.start_window_label}</span>
         <span class="pc-tag">Drop ${p.drop_minutes_label} before</span>
+        ${p.preset_category === "late_drop" ? '<span class="pc-tag">Late drop</span>' : ""}
       </div>
 
       <div class="pc-flow">
@@ -464,23 +457,28 @@ function renderPresets(data) {
         <button class="pc-demo-btn"   type="button">▶ Watch Demo</button>
       </div>
     </div>
-  `).join("");
+  `;
+}
 
+function bindPresetCards(data) {
   presetGridEl.querySelectorAll(".preset-card").forEach(card => {
     const idx = parseInt(card.dataset.idx, 10);
     const p = data.plans[idx];
 
     card.querySelector(".pc-select-btn").addEventListener("click", e => {
       e.stopPropagation();
-      // Fill form first
       startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
       initialDelayEl.value = p.start_delay_ms;
       presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
-      if (!demoModeEl.checked) runOptimize();
+      if (!demoModeEl.checked) {
+        runOptimize({
+          live: true,
+          final_delay_ms: p.final_delay_ms,
+          switch_minutes_before: p.switch_minutes_before,
+        });
+      }
 
-      // Show name input anchored to this card's button row
-      const btnRow = card.querySelector(".pc-btn-row");
       showNameInput({
         anchorEl: card,
         defaultName: defaultName(),
@@ -505,10 +503,42 @@ function renderPresets(data) {
         initialDelayEl.value = p.start_delay_ms;
         presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
         card.classList.add("selected");
-        if (!demoModeEl.checked) runOptimize();
+        if (!demoModeEl.checked) {
+          runOptimize({
+            live: true,
+            final_delay_ms: p.final_delay_ms,
+            switch_minutes_before: p.switch_minutes_before,
+          });
+        }
       }
     });
   });
+}
+
+function renderPresets(data) {
+  queueLiveLabel.textContent = `Queue goes live: ${data.queue_live}`;
+  if (data.timing_mode) setTimingMode(data.timing_mode);
+
+  if (!data.plans.length) {
+    presetGridEl.innerHTML = '<p class="placeholder">No plans available.</p>';
+    return;
+  }
+
+  const standard = data.plans.filter(p => p.preset_category !== "late_drop");
+  const late = data.plans.filter(p => p.preset_category === "late_drop");
+
+  let html = "";
+  if (standard.length) {
+    html += '<div class="preset-group-label">Common Start Windows</div>';
+    html += standard.map((p, i) => renderPresetCard(p, data.plans.indexOf(p))).join("");
+  }
+  if (late.length) {
+    html += '<div class="preset-group-label">Late Drop — 2 to 5 min before queue</div>';
+    html += '<div class="preset-group-hint">Shorter runs with the drop much closer to go-live.</div>';
+    html += late.map(p => renderPresetCard(p, data.plans.indexOf(p))).join("");
+  }
+  presetGridEl.innerHTML = html;
+  bindPresetCards(data);
 }
 
 async function loadPresets() {
@@ -651,9 +681,10 @@ function renderResults(data) {
   ).join("");
 }
 
-async function runOptimize() {
+async function runOptimize(opts = {}) {
   optimizeBtn.disabled = true;
   optimizeBtn.textContent = "Optimizing…";
+  const useLive = Boolean(opts.live);
   try {
     const res = await fetch("/api/optimize", {
       method: "POST",
@@ -663,9 +694,12 @@ async function runOptimize() {
         start_time: startTimeEl.value,
         initial_delay_ms: parseInt(initialDelayEl.value, 10),
         demo: demoModeEl.checked,
-        custom_date: customDateEl.value || "",
+        live: useLive,
+        custom_date: useLive ? "" : (customDateEl.value || ""),
         queue_time_override: queueTimeEl.value || "",
         timing_mode: getTimingMode(),
+        final_delay_ms: opts.final_delay_ms ?? null,
+        switch_minutes_before: opts.switch_minutes_before ?? null,
       }),
     });
     const data = await res.json();
@@ -686,9 +720,25 @@ delayPresetEl.addEventListener("change", () => {
 });
 
 timezoneEl.addEventListener("change", () => {
+  syncCustomTimesToTimezone();
   loadPresets();
   resultsPanelEl.hidden = true;
 });
+
+async function syncCustomTimesToTimezone() {
+  try {
+    const res = await fetch(`/api/queue-defaults?timezone=${encodeURIComponent(timezoneEl.value)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed");
+    customDateEl.value = data.custom_date;
+    queueTimeEl.value = data.queue_time;
+    startTimeEl.value = data.start_time;
+    const hint = document.getElementById("queue_time_hint");
+    if (hint) hint.textContent = `(Walmart queue · ${data.timezone})`;
+  } catch (_) {
+    // Keep existing values if the request fails.
+  }
+}
 
 optimizeBtn.addEventListener("click", () => {
   if (demoModeEl.checked) {
@@ -725,11 +775,11 @@ function nextWednesday() {
 
 customDateEl.value = nextWednesday();
 
-nextWedBtn.addEventListener("click", () => {
-  customDateEl.value = nextWednesday();
-  queueTimeEl.value = "20:00";
+nextWedBtn.addEventListener("click", async () => {
+  await syncCustomTimesToTimezone();
 });
 
+syncCustomTimesToTimezone();
 loadPresets();
 
 // ── Update checking ─────────────────────────────────────────────────────────
@@ -744,10 +794,9 @@ function showUpdateBanner({ version, downloadUrl, canAutoApply }) {
   const textEl = banner.querySelector(".ub-text");
 
   if (canAutoApply) {
-    // Desktop app: new build already downloaded — just restart
     textEl.innerHTML =
-      `🔄 Update <strong>v${version}</strong> ready — <strong>close and reopen</strong> to update`;
-    link.textContent = "Close App Now";
+      `🔄 Update <strong>v${version}</strong> ready — close the app and it will reopen updated`;
+    link.textContent = "Close & Update Now";
     link.href = "#";
     link.onclick = (e) => {
       e.preventDefault();

@@ -202,6 +202,42 @@ def index():
     )
 
 
+def _parse_optional_int(value) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _parse_optional_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+@app.route("/api/queue-defaults", methods=["GET"])
+def queue_defaults_api():
+    """Return queue/start times in the user's selected timezone."""
+    tz_key = (request.args.get("timezone") or "CDT").upper()
+    if tz_key not in TIMEZONES:
+        return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+
+    tz = get_timezone(tz_key)
+    target = next_walmart_queue_time(tz_key=tz_key)
+    target_local = target.astimezone(tz)
+    start_suggest = target_local - timedelta(hours=1)
+
+    return jsonify(
+        {
+            "timezone": tz_key,
+            "custom_date": target_local.strftime("%Y-%m-%d"),
+            "queue_time": target_local.strftime("%H:%M"),
+            "start_time": start_suggest.strftime("%H:%M"),
+            "queue_live": target_local.strftime("%I:%M %p").lstrip("0")
+            + f" {target_local.tzname()} — Wednesday {target_local.strftime('%B %d, %Y')}",
+        }
+    )
+
+
 @app.route("/api/preset-schedules", methods=["GET"])
 def preset_schedules_api():
     tz_key = (request.args.get("timezone") or "CDT").upper()
@@ -248,6 +284,8 @@ def preset_schedules_api():
                     "timing_mode": p.timing_mode,
                     "effective_switch_ts_ms": p.effective_switch_ts_ms,
                     "effective_switch_time_display": p.effective_switch_time_display,
+                    "switch_minutes_before": p.switch_minutes_before,
+                    "preset_category": p.preset_category,
                 }
                 for p in plans
             ],
@@ -264,6 +302,9 @@ def optimize():
     initial_delay_ms = int(data.get("initial_delay_ms", 60000))
     custom_date = data.get("custom_date", "").strip()          # YYYY-MM-DD
     queue_time_override = data.get("queue_time_override", "").strip()  # HH:MM
+    live = bool(data.get("live", False))
+    target_final_delay_ms = _parse_optional_int(data.get("final_delay_ms"))
+    switch_minutes_before = _parse_optional_float(data.get("switch_minutes_before"))
 
     try:
         timing_mode = parse_timing_mode(data.get("timing_mode"))
@@ -276,10 +317,10 @@ def optimize():
     try:
         if demo:
             target = create_demo_target(minutes_from_now=5.0, tz_key=tz_key)
+        elif live or not custom_date:
+            target = next_walmart_queue_time(tz_key=tz_key)
         elif custom_date:
-            # Build a target on the user's chosen date at their chosen queue time
             tz = get_timezone(tz_key)
-            central = get_timezone("CDT")
             try:
                 date_parsed = datetime.strptime(custom_date, "%Y-%m-%d")
             except ValueError:
@@ -289,14 +330,17 @@ def optimize():
                 try:
                     parts = queue_time_override.split(":")
                     q_hour, q_min = int(parts[0]), int(parts[1])
+                    q_second = int(parts[2]) if len(parts) > 2 else 0
                 except (ValueError, IndexError):
                     return jsonify({"error": "Invalid queue time."}), 400
             else:
-                q_hour, q_min = DEFAULT_QUEUE_HOUR, 0
+                walmart_target = next_walmart_queue_time(tz_key=tz_key)
+                q_local = walmart_target.astimezone(tz)
+                q_hour, q_min, q_second = q_local.hour, q_local.minute, q_local.second
 
-            # Build target in Central Time (Walmart's timezone) then localise for display
+            # Queue time is entered in the user's selected timezone.
             target = date_parsed.replace(
-                hour=q_hour, minute=q_min, second=0, microsecond=0, tzinfo=central
+                hour=q_hour, minute=q_min, second=q_second, microsecond=0, tzinfo=tz
             )
         else:
             target = next_walmart_queue_time(tz_key=tz_key)
@@ -308,8 +352,10 @@ def optimize():
             tz_key=tz_key,
             initial_delay_ms=initial_delay_ms,
             timing_mode=timing_mode,
+            target_final_delay_ms=target_final_delay_ms,
+            switch_minutes_before=switch_minutes_before,
         )
-        mode = "demo" if demo else ("custom" if custom_date else "live")
+        mode = "demo" if demo else ("custom" if custom_date and not live else "live")
         return jsonify({"mode": mode, "timing_mode": timing_mode.value, **schedule_to_dict(schedule)})
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400

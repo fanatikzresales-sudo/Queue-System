@@ -126,7 +126,9 @@ jobs:
 
             ### Auto-update
             When you open the app, it checks for updates automatically.
-            If a newer version is available, a banner appears at the top with a download link.
+            If a newer version is available, it downloads in the background.
+            **Close the app** when the update banner appears — it will reopen on the new version automatically.
+            If that fails, download the latest build manually from the releases page.
 
             ### First time?
             - **Windows SmartScreen:** Click "More info" → "Run anyway"

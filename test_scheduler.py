@@ -189,5 +189,28 @@ class TestTimingMode(unittest.TestCase):
             self.assertEqual(deferred.effective_switch_ts_ms, instant.drop_ts_ms)
 
 
+    def test_preset_with_target_final_delay_matches_card(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        preset = preset_schedules(target=target, timing_mode=TimingMode.INSTANT)[1]
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=preset.start_delay_ms,
+            target_final_delay_ms=preset.final_delay_ms,
+            switch_minutes_before=preset.switch_minutes_before,
+        )
+        self.assertEqual(schedule.steps[1].delay_ms, preset.final_delay_ms)
+
+    def test_late_drop_presets_exist(self):
+        target = self._target()
+        plans = preset_schedules(target=target, timing_mode=TimingMode.INSTANT)
+        late = [p for p in plans if p.preset_category == "late_drop"]
+        self.assertGreaterEqual(len(late), 4)
+        for plan in late:
+            self.assertLessEqual(plan.switch_minutes_before, 7)
+            self.assertGreaterEqual(plan.switch_minutes_before, 1.5)
+
+
 if __name__ == "__main__":
     unittest.main()
