@@ -46,6 +46,47 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Auto-detect Java JDK if JAVA_HOME not set
+if not defined JAVA_HOME (
+    for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-17*") do set "JAVA_HOME=%%~J"
+)
+if not defined JAVA_HOME (
+    for /d %%J in ("C:\Program Files\Java\jdk-17*") do set "JAVA_HOME=%%~J"
+)
+if not defined JAVA_HOME (
+    if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
+        set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+    )
+)
+if defined JAVA_HOME (
+    set "PATH=%JAVA_HOME%\bin;%PATH%"
+    echo  Java: %JAVA_HOME%
+) else (
+    echo  ERROR: Java JDK 17 not found.
+    echo.
+    echo  Install JDK 17:
+    echo    1. Go to https://adoptium.net/temurin/releases/?version=17
+    echo    2. Download Windows x64 .msi and run it
+    echo    3. CHECK "Set JAVA_HOME" and "Add to PATH" during install
+    echo    4. Close this window, open a NEW cmd, run build-android.bat again
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Auto-detect Android SDK
+if not defined ANDROID_HOME (
+    if exist "%LOCALAPPDATA%\Android\Sdk" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
+)
+if defined ANDROID_HOME (
+    set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%"
+    echo  Android SDK: %ANDROID_HOME%
+) else (
+    echo  WARNING: ANDROID_HOME not set. Install Android Studio if Gradle fails next.
+    echo    https://developer.android.com/studio
+    echo.
+)
+
 echo.
 echo  [1/4] npm install...
 call npm install
