@@ -240,7 +240,9 @@ function renderStatic(data) {
 
 function applyUrlParams() {
   const tz = urlParams.get("timezone");
+  const startDelay = urlParams.get("start_delay");
   const finalDelay = urlParams.get("final_delay");
+  const switchMin = urlParams.get("switch_minutes_before");
   const label = urlParams.get("label");
   const timingMode = urlParams.get("timing_mode");
 
@@ -251,15 +253,14 @@ function applyUrlParams() {
   const ctxEl = document.getElementById("plan_context");
   if (ctxEl) {
     if (label) {
-      const finalLabel = finalDelay
-        ? (+finalDelay >= 1000
-          ? `${(+finalDelay / 1000).toFixed(1)} sec (${(+finalDelay).toLocaleString()} ms)`
-          : `${finalDelay} ms`)
-        : "";
+      const delayLabel = (ms) =>
+        +ms >= 1000 ? `${(+ms / 1000).toFixed(1)} sec (${(+ms).toLocaleString()} ms)` : `${ms} ms`;
       const modeLabel = timingMode === "deferred" ? "Deferred Switch" : "Instant Switch";
       ctxEl.innerHTML =
-        `Testing: <strong>${label}</strong>` +
-        (finalLabel ? ` &nbsp;·&nbsp; Final drop delay: <strong>${finalLabel}</strong>` : "") +
+        `Testing preset: <strong>${label}</strong>` +
+        (startDelay ? ` &nbsp;·&nbsp; Start: <strong>${delayLabel(startDelay)}</strong>` : "") +
+        (finalDelay ? ` &nbsp;·&nbsp; Final: <strong>${delayLabel(finalDelay)}</strong>` : "") +
+        (switchMin ? ` &nbsp;·&nbsp; Drop ${switchMin} min before queue` : "") +
         (timingMode ? ` &nbsp;·&nbsp; ${modeLabel}` : "");
       ctxEl.hidden = false;
     } else {
@@ -267,7 +268,7 @@ function applyUrlParams() {
     }
   }
 
-  return { tz, finalDelay, timingMode };
+  return { tz, startDelay, finalDelay, switchMin, timingMode };
 }
 
 async function startDemo() {
@@ -287,9 +288,12 @@ async function startDemo() {
   verificationEl.textContent = "Waiting…";
   verificationEl.className = "state-value pending";
 
-  const { delay, timingMode } = applyUrlParams();
+  const { startDelay, finalDelay, switchMin, timingMode } = applyUrlParams();
   const params = new URLSearchParams({ timezone: timezoneEl.value });
-  if (delay) params.set("delay", delay);
+  if (startDelay) params.set("start_delay", startDelay);
+  if (finalDelay) params.set("final_delay", finalDelay);
+  if (switchMin) params.set("switch_minutes_before", switchMin);
+  if (urlParams.get("label")) params.set("label", urlParams.get("label"));
   if (timingMode) params.set("timing_mode", timingMode);
 
   try {
@@ -305,7 +309,8 @@ async function startDemo() {
     addEvent(
       "drop",
       `Live demo started — queue goes live in <strong>${data.demo_duration_minutes} minutes</strong>` +
-        (data.timing_mode === "deferred" ? " (Deferred Switch)" : ""),
+        (data.from_preset ? " (preset demo)" : "") +
+        (data.timing_mode === "deferred" ? " · Deferred Switch" : ""),
       nowTs()
     );
     addEvent(

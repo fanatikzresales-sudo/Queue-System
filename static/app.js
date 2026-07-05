@@ -490,7 +490,9 @@ function bindPresetCards(data) {
       e.stopPropagation();
       const params = new URLSearchParams({
         timezone: timezoneEl.value,
+        start_delay: String(p.start_delay_ms),
         final_delay: String(p.final_delay_ms),
+        switch_minutes_before: String(p.switch_minutes_before),
         label: p.label,
         timing_mode: p.timing_mode || getTimingMode(),
       });

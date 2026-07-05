@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from scheduler import (
     CENTRAL,
     TimingMode,
+    build_demo_from_preset,
     build_schedule,
     create_demo_target,
     find_aligned_delay,
@@ -210,6 +211,18 @@ class TestTimingMode(unittest.TestCase):
         for plan in late:
             self.assertLessEqual(plan.switch_minutes_before, 7)
             self.assertGreaterEqual(plan.switch_minutes_before, 1.5)
+
+    def test_demo_from_preset_uses_exact_delays(self):
+        target = self._target()
+        preset = preset_schedules(target=target, timing_mode=TimingMode.INSTANT)[0]
+        schedule = build_demo_from_preset(
+            start_delay_ms=preset.start_delay_ms,
+            final_delay_ms=preset.final_delay_ms,
+            switch_minutes_before=preset.switch_minutes_before,
+            timing_mode=TimingMode.INSTANT,
+        )[0]
+        self.assertEqual(schedule.steps[1].delay_ms, preset.final_delay_ms)
+        self.assertTrue(schedule.hits_target_exactly)
 
 
 if __name__ == "__main__":
