@@ -129,8 +129,9 @@ async function main() {
   }
 
   const notif = await notificationIcon(logo, 96);
+  const legacyXml = path.join(ANDROID_RES, 'drawable', 'ic_stat_icon.xml');
+  if (fs.existsSync(legacyXml)) fs.unlinkSync(legacyXml);
   savePng(notif, path.join(ANDROID_RES, 'drawable-nodpi', 'ic_stat_icon.png'));
-  savePng(notif, path.join(ANDROID_RES, 'drawable', 'ic_stat_icon.png'));
 
   for (const [folder, [w, h]] of Object.entries(ANDROID_SPLASH)) {
     savePng(await splashWithLogo(logo, w, h), path.join(ANDROID_RES, folder, 'splash.png'));

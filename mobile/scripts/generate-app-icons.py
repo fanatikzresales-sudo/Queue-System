@@ -118,9 +118,10 @@ def main() -> None:
 
     # Android notification icon (PNG replaces vector for logo visibility)
     notif = notification_icon(logo, 96)
+    legacy_xml = ANDROID_RES / "drawable" / "ic_stat_icon.xml"
+    if legacy_xml.exists():
+        legacy_xml.unlink()
     save_png(notif, ANDROID_RES / "drawable-nodpi" / "ic_stat_icon.png")
-    # Remove old vector if present — keep vector as fallback name conflict; use png in drawable
-    save_png(notif, ANDROID_RES / "drawable" / "ic_stat_icon.png")
 
     # Android splash screens
     for folder, (w, h) in ANDROID_SPLASH.items():
