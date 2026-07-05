@@ -76,16 +76,43 @@ if defined JAVA_HOME (
 
 REM Auto-detect Android SDK
 if not defined ANDROID_HOME (
-    if exist "%LOCALAPPDATA%\Android\Sdk" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
+    if exist "%LOCALAPPDATA%\Android\Sdk\platforms" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
 )
-if defined ANDROID_HOME (
-    set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%"
-    echo  Android SDK: %ANDROID_HOME%
-) else (
-    echo  WARNING: ANDROID_HOME not set. Install Android Studio if Gradle fails next.
-    echo    https://developer.android.com/studio
+if not defined ANDROID_HOME (
+    if exist "%USERPROFILE%\AppData\Local\Android\Sdk\platforms" set "ANDROID_HOME=%USERPROFILE%\AppData\Local\Android\Sdk"
+)
+if not defined ANDROID_HOME (
+    if exist "C:\Android\Sdk\platforms" set "ANDROID_HOME=C:\Android\Sdk"
+)
+
+if not defined ANDROID_HOME (
+    echo  ERROR: Android SDK not found.
     echo.
+    echo  You have Android Studio, but Gradle needs the SDK path.
+    echo.
+    echo  Find your SDK path in Android Studio:
+    echo    Settings -^> Languages ^& Frameworks -^> Android SDK
+    echo    Copy "Android SDK Location" at the top
+    echo.
+    echo  Then create this file:
+    echo    C:\Queue-System\mobile\android\local.properties
+    echo.
+    echo  With one line ^(use YOUR path, forward slashes OK^):
+    echo    sdk.dir=C:/Users/YOURNAME/AppData/Local/Android/Sdk
+    echo.
+    echo  Or set ANDROID_HOME system env var to that folder, then re-run.
+    echo.
+    pause
+    exit /b 1
 )
+
+set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%"
+echo  Android SDK: %ANDROID_HOME%
+
+REM Gradle reads sdk.dir from local.properties (required even if ANDROID_HOME is set)
+set "SDK_FWD=%ANDROID_HOME:\=/%"
+echo sdk.dir=%SDK_FWD%> "%MOBILE_DIR%\android\local.properties"
+echo  Wrote android\local.properties
 
 echo.
 echo  [1/4] npm install...
