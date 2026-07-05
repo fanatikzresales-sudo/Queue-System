@@ -68,6 +68,24 @@ A second row of presets drops **2–5 minutes before queue** — shorter runs wh
 
 ---
 
+## Mobile app (Android & iOS)
+
+A phone companion app is in the [`mobile/`](mobile/) folder — same presets, custom optimizer, live demo, and **native drop reminders**.
+
+```bash
+cd mobile
+npm install
+npm run build
+npx cap add android   # first time
+npx cap add ios       # first time (Mac + Xcode)
+npm run cap:android   # open Android Studio
+npm run cap:ios       # open Xcode
+```
+
+See [mobile/README.md](mobile/README.md) for full build and publish steps.
+
+---
+
 ## Build from source
 
 ### Requirements

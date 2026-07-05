@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FR Queue Optimizer</string>
+    <string name="title_activity_main">FR Queue Optimizer</string>
+    <string name="package_name">com.frqueue.optimizer</string>
+    <string name="custom_url_scheme">com.frqueue.optimizer</string>
+</resources>

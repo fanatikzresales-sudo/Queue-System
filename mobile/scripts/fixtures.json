@@ -1,0 +1,2070 @@
+{
+  "preset_CDT_instant": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558140000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558620000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_CDT_instant": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "preset_CDT_deferred": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558020000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558320000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558380000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_CDT_deferred": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "preset_EST_instant": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558140000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558620000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_EST_instant": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "preset_EST_deferred": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558020000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558320000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558380000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_EST_deferred": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "preset_PT_instant": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558200000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558140000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558620000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558680000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_PT_instant": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "preset_PT_deferred": {
+    "count": 11,
+    "plans": [
+      {
+        "label": "Drop to 5,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 5000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 10.0,
+        "drop_ts_ms": 1783558080000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop to 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 11.0,
+        "drop_ts_ms": 1783558020000,
+        "preset_category": "standard"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 3,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 3000,
+        "switch_minutes_before": 6.0,
+        "drop_ts_ms": 1783558320000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 5 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 5.0,
+        "drop_ts_ms": 1783558380000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 2,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 2000,
+        "switch_minutes_before": 3.0,
+        "drop_ts_ms": 1783558500000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 3 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 4.0,
+        "drop_ts_ms": 1783558440000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,500 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1500,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      },
+      {
+        "label": "Drop 2 min before \u00b7 1,000 ms",
+        "start_delay_ms": 120000,
+        "final_delay_ms": 1000,
+        "switch_minutes_before": 2.0,
+        "drop_ts_ms": 1783558560000,
+        "preset_category": "late_drop"
+      }
+    ]
+  },
+  "demo_PT_deferred": {
+    "duration": 10.0,
+    "start_delay": 120000,
+    "final_delay": 5000,
+    "hits": true
+  },
+  "optimize_sample": {
+    "timezone": "CDT",
+    "timing_mode": "instant",
+    "queue_live": "Wednesday, July 08, 2026 at 08:00:00.000 PM CDT",
+    "start_time": "Wednesday, July 08, 2026 at 07:00:00.000 PM CDT",
+    "hits_target_exactly": true,
+    "two_step_only": true,
+    "starter_options": [
+      {
+        "delay_ms": 120000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 145,
+        "label": "2.0 min (120,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 90000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.5,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 159,
+        "label": "1.5 min (90,000 ms) start \u2192 drop at 10.5 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 60000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 170,
+        "label": "1.0 min (60,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 45000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.5,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 192,
+        "label": "45.0 sec (45,000 ms) start \u2192 drop at 10.5 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 30000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 220,
+        "label": "30.0 sec (30,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 20000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 270,
+        "label": "20.0 sec (20,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 15000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 320,
+        "label": "15.0 sec (15,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 10000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 420,
+        "label": "10.0 sec (10,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 5000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 720,
+        "label": "5.0 sec (5,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      }
+    ],
+    "drop_schedule": [
+      {
+        "is_start": true,
+        "is_final_drop": false,
+        "at": "07:00:00.000 PM CDT",
+        "at_ts_ms": 1783555200000,
+        "minutes_before": "60 min",
+        "delay_ms": 120000,
+        "delay_label": "2.0 min (120,000 ms)",
+        "refreshes_until_next": 25,
+        "aligned": true
+      },
+      {
+        "is_start": false,
+        "is_final_drop": true,
+        "at": "07:50:00.000 PM CDT",
+        "at_ts_ms": 1783558200000,
+        "minutes_before": "10 min",
+        "delay_ms": 3000,
+        "delay_label": "3.0 sec (3,000 ms)",
+        "refreshes_until_next": 200,
+        "aligned": true,
+        "effective_switch_at": "07:50:00.000 PM CDT",
+        "effective_switch_ts_ms": 1783558200000
+      }
+    ],
+    "final_refreshes": [
+      {
+        "time": "07:59:18.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:21.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:24.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:27.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:30.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:33.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:36.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:39.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:42.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:45.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:48.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:51.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:54.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:57.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "08:00:00.000 PM CDT",
+        "is_queue_live": true
+      }
+    ]
+  },
+  "demo_live_sample": {
+    "timezone": "CDT",
+    "timing_mode": "instant",
+    "queue_live": "Wednesday, July 08, 2026 at 08:00:00.000 PM CDT",
+    "start_time": "Wednesday, July 08, 2026 at 07:00:00.000 PM CDT",
+    "hits_target_exactly": true,
+    "two_step_only": true,
+    "starter_options": [
+      {
+        "delay_ms": 120000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 145,
+        "label": "2.0 min (120,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 90000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.5,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 159,
+        "label": "1.5 min (90,000 ms) start \u2192 drop at 10.5 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 60000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 170,
+        "label": "1.0 min (60,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 45000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.5,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 192,
+        "label": "45.0 sec (45,000 ms) start \u2192 drop at 10.5 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 30000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 220,
+        "label": "30.0 sec (30,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 20000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 270,
+        "label": "20.0 sec (20,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 15000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 320,
+        "label": "15.0 sec (15,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 10000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 420,
+        "label": "10.0 sec (10,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      },
+      {
+        "delay_ms": 5000,
+        "aligns_to_queue": true,
+        "switch_minutes_before": 10.0,
+        "final_delay_ms": 5000,
+        "refreshes_until_queue": 720,
+        "label": "5.0 sec (5,000 ms) start \u2192 drop at 10 min before \u2192 5.0 sec (5,000 ms) until live"
+      }
+    ],
+    "drop_schedule": [
+      {
+        "is_start": true,
+        "is_final_drop": false,
+        "at": "07:00:00.000 PM CDT",
+        "at_ts_ms": 1783555200000,
+        "minutes_before": "60 min",
+        "delay_ms": 120000,
+        "delay_label": "2.0 min (120,000 ms)",
+        "refreshes_until_next": 25,
+        "aligned": true,
+        "at_ts": 1783555200000,
+        "effective_switch_ts": 1783555200000
+      },
+      {
+        "is_start": false,
+        "is_final_drop": true,
+        "at": "07:50:00.000 PM CDT",
+        "at_ts_ms": 1783558200000,
+        "minutes_before": "10 min",
+        "delay_ms": 3000,
+        "delay_label": "3.0 sec (3,000 ms)",
+        "refreshes_until_next": 200,
+        "aligned": true,
+        "effective_switch_at": "07:50:00.000 PM CDT",
+        "effective_switch_ts_ms": 1783558200000,
+        "at_ts": 1783558200000,
+        "effective_switch_ts": 1783558200000
+      }
+    ],
+    "final_refreshes": [
+      {
+        "time": "07:59:18.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:21.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:24.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:27.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:30.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:33.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:36.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:39.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:42.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:45.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:48.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:51.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:54.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:57.000 PM CDT",
+        "is_queue_live": false
+      },
+      {
+        "time": "08:00:00.000 PM CDT",
+        "is_queue_live": true
+      }
+    ],
+    "target_ts": 1783558800000,
+    "start_ts": 1783555200000,
+    "server_now_ts": 1783279472133,
+    "all_refreshes": [
+      {
+        "time": "07:02:00.000 PM CDT",
+        "ts": 1783555320000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:04:00.000 PM CDT",
+        "ts": 1783555440000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:06:00.000 PM CDT",
+        "ts": 1783555560000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:08:00.000 PM CDT",
+        "ts": 1783555680000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:10:00.000 PM CDT",
+        "ts": 1783555800000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:12:00.000 PM CDT",
+        "ts": 1783555920000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:14:00.000 PM CDT",
+        "ts": 1783556040000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:16:00.000 PM CDT",
+        "ts": 1783556160000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:18:00.000 PM CDT",
+        "ts": 1783556280000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:20:00.000 PM CDT",
+        "ts": 1783556400000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:22:00.000 PM CDT",
+        "ts": 1783556520000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:24:00.000 PM CDT",
+        "ts": 1783556640000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:26:00.000 PM CDT",
+        "ts": 1783556760000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:28:00.000 PM CDT",
+        "ts": 1783556880000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:30:00.000 PM CDT",
+        "ts": 1783557000000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:32:00.000 PM CDT",
+        "ts": 1783557120000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:34:00.000 PM CDT",
+        "ts": 1783557240000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:36:00.000 PM CDT",
+        "ts": 1783557360000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:38:00.000 PM CDT",
+        "ts": 1783557480000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:40:00.000 PM CDT",
+        "ts": 1783557600000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:42:00.000 PM CDT",
+        "ts": 1783557720000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:44:00.000 PM CDT",
+        "ts": 1783557840000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:46:00.000 PM CDT",
+        "ts": 1783557960000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:48:00.000 PM CDT",
+        "ts": 1783558080000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:00.000 PM CDT",
+        "ts": 1783558200000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:03.000 PM CDT",
+        "ts": 1783558203000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:06.000 PM CDT",
+        "ts": 1783558206000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:09.000 PM CDT",
+        "ts": 1783558209000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:12.000 PM CDT",
+        "ts": 1783558212000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:15.000 PM CDT",
+        "ts": 1783558215000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:18.000 PM CDT",
+        "ts": 1783558218000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:21.000 PM CDT",
+        "ts": 1783558221000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:24.000 PM CDT",
+        "ts": 1783558224000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:27.000 PM CDT",
+        "ts": 1783558227000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:30.000 PM CDT",
+        "ts": 1783558230000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:33.000 PM CDT",
+        "ts": 1783558233000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:36.000 PM CDT",
+        "ts": 1783558236000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:39.000 PM CDT",
+        "ts": 1783558239000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:42.000 PM CDT",
+        "ts": 1783558242000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:45.000 PM CDT",
+        "ts": 1783558245000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:48.000 PM CDT",
+        "ts": 1783558248000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:51.000 PM CDT",
+        "ts": 1783558251000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:54.000 PM CDT",
+        "ts": 1783558254000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:50:57.000 PM CDT",
+        "ts": 1783558257000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:00.000 PM CDT",
+        "ts": 1783558260000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:03.000 PM CDT",
+        "ts": 1783558263000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:06.000 PM CDT",
+        "ts": 1783558266000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:09.000 PM CDT",
+        "ts": 1783558269000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:12.000 PM CDT",
+        "ts": 1783558272000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:15.000 PM CDT",
+        "ts": 1783558275000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:18.000 PM CDT",
+        "ts": 1783558278000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:21.000 PM CDT",
+        "ts": 1783558281000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:24.000 PM CDT",
+        "ts": 1783558284000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:27.000 PM CDT",
+        "ts": 1783558287000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:30.000 PM CDT",
+        "ts": 1783558290000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:33.000 PM CDT",
+        "ts": 1783558293000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:36.000 PM CDT",
+        "ts": 1783558296000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:39.000 PM CDT",
+        "ts": 1783558299000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:42.000 PM CDT",
+        "ts": 1783558302000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:45.000 PM CDT",
+        "ts": 1783558305000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:48.000 PM CDT",
+        "ts": 1783558308000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:51.000 PM CDT",
+        "ts": 1783558311000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:54.000 PM CDT",
+        "ts": 1783558314000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:51:57.000 PM CDT",
+        "ts": 1783558317000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:00.000 PM CDT",
+        "ts": 1783558320000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:03.000 PM CDT",
+        "ts": 1783558323000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:06.000 PM CDT",
+        "ts": 1783558326000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:09.000 PM CDT",
+        "ts": 1783558329000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:12.000 PM CDT",
+        "ts": 1783558332000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:15.000 PM CDT",
+        "ts": 1783558335000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:18.000 PM CDT",
+        "ts": 1783558338000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:21.000 PM CDT",
+        "ts": 1783558341000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:24.000 PM CDT",
+        "ts": 1783558344000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:27.000 PM CDT",
+        "ts": 1783558347000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:30.000 PM CDT",
+        "ts": 1783558350000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:33.000 PM CDT",
+        "ts": 1783558353000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:36.000 PM CDT",
+        "ts": 1783558356000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:39.000 PM CDT",
+        "ts": 1783558359000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:42.000 PM CDT",
+        "ts": 1783558362000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:45.000 PM CDT",
+        "ts": 1783558365000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:48.000 PM CDT",
+        "ts": 1783558368000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:51.000 PM CDT",
+        "ts": 1783558371000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:54.000 PM CDT",
+        "ts": 1783558374000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:52:57.000 PM CDT",
+        "ts": 1783558377000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:00.000 PM CDT",
+        "ts": 1783558380000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:03.000 PM CDT",
+        "ts": 1783558383000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:06.000 PM CDT",
+        "ts": 1783558386000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:09.000 PM CDT",
+        "ts": 1783558389000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:12.000 PM CDT",
+        "ts": 1783558392000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:15.000 PM CDT",
+        "ts": 1783558395000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:18.000 PM CDT",
+        "ts": 1783558398000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:21.000 PM CDT",
+        "ts": 1783558401000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:24.000 PM CDT",
+        "ts": 1783558404000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:27.000 PM CDT",
+        "ts": 1783558407000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:30.000 PM CDT",
+        "ts": 1783558410000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:33.000 PM CDT",
+        "ts": 1783558413000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:36.000 PM CDT",
+        "ts": 1783558416000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:39.000 PM CDT",
+        "ts": 1783558419000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:42.000 PM CDT",
+        "ts": 1783558422000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:45.000 PM CDT",
+        "ts": 1783558425000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:48.000 PM CDT",
+        "ts": 1783558428000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:51.000 PM CDT",
+        "ts": 1783558431000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:54.000 PM CDT",
+        "ts": 1783558434000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:53:57.000 PM CDT",
+        "ts": 1783558437000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:00.000 PM CDT",
+        "ts": 1783558440000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:03.000 PM CDT",
+        "ts": 1783558443000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:06.000 PM CDT",
+        "ts": 1783558446000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:09.000 PM CDT",
+        "ts": 1783558449000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:12.000 PM CDT",
+        "ts": 1783558452000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:15.000 PM CDT",
+        "ts": 1783558455000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:18.000 PM CDT",
+        "ts": 1783558458000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:21.000 PM CDT",
+        "ts": 1783558461000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:24.000 PM CDT",
+        "ts": 1783558464000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:27.000 PM CDT",
+        "ts": 1783558467000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:30.000 PM CDT",
+        "ts": 1783558470000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:33.000 PM CDT",
+        "ts": 1783558473000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:36.000 PM CDT",
+        "ts": 1783558476000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:39.000 PM CDT",
+        "ts": 1783558479000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:42.000 PM CDT",
+        "ts": 1783558482000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:45.000 PM CDT",
+        "ts": 1783558485000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:48.000 PM CDT",
+        "ts": 1783558488000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:51.000 PM CDT",
+        "ts": 1783558491000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:54.000 PM CDT",
+        "ts": 1783558494000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:54:57.000 PM CDT",
+        "ts": 1783558497000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:00.000 PM CDT",
+        "ts": 1783558500000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:03.000 PM CDT",
+        "ts": 1783558503000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:06.000 PM CDT",
+        "ts": 1783558506000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:09.000 PM CDT",
+        "ts": 1783558509000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:12.000 PM CDT",
+        "ts": 1783558512000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:15.000 PM CDT",
+        "ts": 1783558515000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:18.000 PM CDT",
+        "ts": 1783558518000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:21.000 PM CDT",
+        "ts": 1783558521000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:24.000 PM CDT",
+        "ts": 1783558524000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:27.000 PM CDT",
+        "ts": 1783558527000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:30.000 PM CDT",
+        "ts": 1783558530000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:33.000 PM CDT",
+        "ts": 1783558533000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:36.000 PM CDT",
+        "ts": 1783558536000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:39.000 PM CDT",
+        "ts": 1783558539000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:42.000 PM CDT",
+        "ts": 1783558542000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:45.000 PM CDT",
+        "ts": 1783558545000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:48.000 PM CDT",
+        "ts": 1783558548000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:51.000 PM CDT",
+        "ts": 1783558551000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:54.000 PM CDT",
+        "ts": 1783558554000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:55:57.000 PM CDT",
+        "ts": 1783558557000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:00.000 PM CDT",
+        "ts": 1783558560000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:03.000 PM CDT",
+        "ts": 1783558563000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:06.000 PM CDT",
+        "ts": 1783558566000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:09.000 PM CDT",
+        "ts": 1783558569000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:12.000 PM CDT",
+        "ts": 1783558572000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:15.000 PM CDT",
+        "ts": 1783558575000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:18.000 PM CDT",
+        "ts": 1783558578000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:21.000 PM CDT",
+        "ts": 1783558581000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:24.000 PM CDT",
+        "ts": 1783558584000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:27.000 PM CDT",
+        "ts": 1783558587000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:30.000 PM CDT",
+        "ts": 1783558590000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:33.000 PM CDT",
+        "ts": 1783558593000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:36.000 PM CDT",
+        "ts": 1783558596000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:39.000 PM CDT",
+        "ts": 1783558599000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:42.000 PM CDT",
+        "ts": 1783558602000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:45.000 PM CDT",
+        "ts": 1783558605000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:48.000 PM CDT",
+        "ts": 1783558608000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:51.000 PM CDT",
+        "ts": 1783558611000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:54.000 PM CDT",
+        "ts": 1783558614000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:56:57.000 PM CDT",
+        "ts": 1783558617000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:00.000 PM CDT",
+        "ts": 1783558620000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:03.000 PM CDT",
+        "ts": 1783558623000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:06.000 PM CDT",
+        "ts": 1783558626000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:09.000 PM CDT",
+        "ts": 1783558629000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:12.000 PM CDT",
+        "ts": 1783558632000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:15.000 PM CDT",
+        "ts": 1783558635000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:18.000 PM CDT",
+        "ts": 1783558638000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:21.000 PM CDT",
+        "ts": 1783558641000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:24.000 PM CDT",
+        "ts": 1783558644000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:27.000 PM CDT",
+        "ts": 1783558647000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:30.000 PM CDT",
+        "ts": 1783558650000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:33.000 PM CDT",
+        "ts": 1783558653000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:36.000 PM CDT",
+        "ts": 1783558656000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:39.000 PM CDT",
+        "ts": 1783558659000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:42.000 PM CDT",
+        "ts": 1783558662000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:45.000 PM CDT",
+        "ts": 1783558665000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:48.000 PM CDT",
+        "ts": 1783558668000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:51.000 PM CDT",
+        "ts": 1783558671000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:54.000 PM CDT",
+        "ts": 1783558674000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:57:57.000 PM CDT",
+        "ts": 1783558677000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:00.000 PM CDT",
+        "ts": 1783558680000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:03.000 PM CDT",
+        "ts": 1783558683000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:06.000 PM CDT",
+        "ts": 1783558686000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:09.000 PM CDT",
+        "ts": 1783558689000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:12.000 PM CDT",
+        "ts": 1783558692000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:15.000 PM CDT",
+        "ts": 1783558695000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:18.000 PM CDT",
+        "ts": 1783558698000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:21.000 PM CDT",
+        "ts": 1783558701000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:24.000 PM CDT",
+        "ts": 1783558704000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:27.000 PM CDT",
+        "ts": 1783558707000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:30.000 PM CDT",
+        "ts": 1783558710000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:33.000 PM CDT",
+        "ts": 1783558713000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:36.000 PM CDT",
+        "ts": 1783558716000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:39.000 PM CDT",
+        "ts": 1783558719000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:42.000 PM CDT",
+        "ts": 1783558722000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:45.000 PM CDT",
+        "ts": 1783558725000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:48.000 PM CDT",
+        "ts": 1783558728000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:51.000 PM CDT",
+        "ts": 1783558731000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:54.000 PM CDT",
+        "ts": 1783558734000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:58:57.000 PM CDT",
+        "ts": 1783558737000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:00.000 PM CDT",
+        "ts": 1783558740000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:03.000 PM CDT",
+        "ts": 1783558743000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:06.000 PM CDT",
+        "ts": 1783558746000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:09.000 PM CDT",
+        "ts": 1783558749000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:12.000 PM CDT",
+        "ts": 1783558752000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:15.000 PM CDT",
+        "ts": 1783558755000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:18.000 PM CDT",
+        "ts": 1783558758000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:21.000 PM CDT",
+        "ts": 1783558761000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:24.000 PM CDT",
+        "ts": 1783558764000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:27.000 PM CDT",
+        "ts": 1783558767000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:30.000 PM CDT",
+        "ts": 1783558770000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:33.000 PM CDT",
+        "ts": 1783558773000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:36.000 PM CDT",
+        "ts": 1783558776000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:39.000 PM CDT",
+        "ts": 1783558779000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:42.000 PM CDT",
+        "ts": 1783558782000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:45.000 PM CDT",
+        "ts": 1783558785000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:48.000 PM CDT",
+        "ts": 1783558788000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:51.000 PM CDT",
+        "ts": 1783558791000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:54.000 PM CDT",
+        "ts": 1783558794000,
+        "is_queue_live": false
+      },
+      {
+        "time": "07:59:57.000 PM CDT",
+        "ts": 1783558797000,
+        "is_queue_live": false
+      },
+      {
+        "time": "08:00:00.000 PM CDT",
+        "ts": 1783558800000,
+        "is_queue_live": true
+      }
+    ]
+  }
+}

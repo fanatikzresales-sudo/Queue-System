@@ -1,0 +1,17 @@
+node_modules/
+www/js/cap-native.js
+www/js/app.js
+www/js/demo_live.js
+www/css/style.css
+www/css/demo_live.css
+www/js/vendor/
+www/index.html
+www/demo-live.html
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+ios/App/Pods/
+ios/App/build/
+.DS_Store
+*.xcuserstate
