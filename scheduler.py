@@ -983,3 +983,96 @@ def best_delay_for_demo(
 
     # Last resort — default values known to work
     return LIVE_DEMO_INITIAL_DELAY_MS, 5_000
+
+
+def _demo_minutes_for_preset(
+    *,
+    switch_minutes_before: float | None,
+    final_delay_ms: int,
+    start_delay_ms: int,
+) -> float:
+    """Pick a demo window long enough to mirror the preset's drop timing."""
+    switch_min = switch_minutes_before if switch_minutes_before is not None else 2.0
+    # Room for phase 2: at least ~1 minute or five final-delay ticks, whichever is larger.
+    min_phase2_ms = max(60_000, final_delay_ms * 5)
+    # Room for phase 1: at least one start-delay tick.
+    min_phase1_ms = min(start_delay_ms, 120_000)
+    total_ms = int(switch_min * 60_000) + min_phase2_ms + min_phase1_ms
+    minutes = total_ms / 60_000
+    return min(max(3.0, minutes), 10.0)
+
+
+def build_demo_from_preset(
+    *,
+    start_delay_ms: int,
+    final_delay_ms: int,
+    switch_minutes_before: float | None = None,
+    timing_mode: TimingMode | str = TimingMode.INSTANT,
+    tz_key: str = "CDT",
+    now: datetime | None = None,
+) -> tuple[Schedule, float]:
+    """
+    Build a live-demo schedule that mirrors a preset card:
+    same start delay, final delay, drop window, and timing mode when possible.
+    Returns (schedule, demo_duration_minutes).
+    """
+    if isinstance(timing_mode, str):
+        timing_mode = parse_timing_mode(timing_mode)
+
+    demo_minutes = _demo_minutes_for_preset(
+        switch_minutes_before=switch_minutes_before,
+        final_delay_ms=final_delay_ms,
+        start_delay_ms=start_delay_ms,
+    )
+
+    tz = get_timezone(tz_key)
+    now = _ensure_tz(now or datetime.now(tz), tz).replace(microsecond=0)
+    target = now + timedelta(minutes=demo_minutes)
+    start = now
+
+    attempts: list[tuple[int, float | None]] = []
+    if switch_minutes_before is not None:
+        attempts.append((start_delay_ms, switch_minutes_before))
+    attempts.append((start_delay_ms, None))
+
+    smaller_starts = [d for d in _DEMO_START_DELAY_CANDIDATES if d <= start_delay_ms]
+    if start_delay_ms not in smaller_starts:
+        smaller_starts.insert(0, start_delay_ms)
+    for sd in smaller_starts:
+        if switch_minutes_before is not None:
+            attempts.append((sd, switch_minutes_before))
+        attempts.append((sd, None))
+
+    seen: set[tuple[int, float | None]] = set()
+    for sd, switch_min in attempts:
+        key = (sd, switch_min)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            schedule = build_schedule(
+                target=target,
+                start=start,
+                initial_delay_ms=sd,
+                target_final_delay_ms=final_delay_ms,
+                switch_minutes_before=switch_min,
+                timing_mode=timing_mode,
+                tz_key=tz_key,
+            )
+            return schedule, demo_minutes
+        except ValueError:
+            continue
+
+    demo_start, demo_final = best_delay_for_demo(
+        demo_minutes=demo_minutes,
+        target_final_delay_ms=final_delay_ms,
+    )
+    schedule = build_schedule(
+        target=target,
+        start=start,
+        initial_delay_ms=demo_start,
+        target_final_delay_ms=demo_final,
+        timing_mode=timing_mode,
+        tz_key=tz_key,
+    )
+    return schedule, demo_minutes
