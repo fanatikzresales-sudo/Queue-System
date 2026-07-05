@@ -163,10 +163,12 @@
     const banner = document.getElementById('update-banner');
     if (banner && isCapacitor) banner.hidden = true;
     patchPlanManager();
+    setupNotifBanner();
   });
 
   global.addEventListener('load', () => {
     patchPlanManager();
+    setupNotifBanner();
     const tryPatch = setInterval(() => {
       patchPlanManager();
       if (global.PM && global.PM.__mobilePatched) clearInterval(tryPatch);

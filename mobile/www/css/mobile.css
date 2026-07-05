@@ -102,6 +102,34 @@ select {
   display: none !important;
 }
 
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.app-header-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+@media (min-width: 600px) {
+  .app-logo {
+    width: 100px;
+    height: 100px;
+  }
+}
+
 .notif-permission-banner {
   margin: 0 0 1rem;
   padding: 1rem 1.1rem;

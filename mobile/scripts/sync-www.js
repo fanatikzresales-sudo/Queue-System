@@ -67,6 +67,9 @@ copy(
   path.join(ROOT, 'mobile/node_modules/luxon/build/global/luxon.min.js'),
   path.join(JS, 'vendor/luxon.min.js')
 );
+if (fs.existsSync(path.join(ROOT, 'assets/logo.png'))) {
+  copy(path.join(ROOT, 'assets/logo.png'), path.join(WWW, 'img/logo.png'));
+}
 
 // index.html
 fs.writeFileSync(path.join(WWW, 'index.html'), `${mobileHead('FR Queue Optimizer')}
@@ -91,14 +94,17 @@ fs.writeFileSync(path.join(WWW, 'index.html'), `${mobileHead('FR Queue Optimizer
       </div>
     </div>
 
-    <header>
-      <div class="badge">Walmart · Pokemon Queue</div>
-      <h1>FR Queue Optimizer</h1>
-      <p class="subtitle">
-        Pick how early you start. Get exactly <strong>2 delays</strong>: one to set at the start,
-        one to drop before queue live so your refresh hits <strong>8:00 PM</strong> on the dot.
-        <a class="live-link" href="demo-live.html">Watch live demo →</a>
-      </p>
+    <header class="app-header">
+      <img src="img/logo.png" alt="Fanatikz Resales" class="app-logo" width="120" height="120">
+      <div class="app-header-text">
+        <div class="badge">Walmart · Pokemon Queue</div>
+        <h1>FR Queue Optimizer</h1>
+        <p class="subtitle">
+          Pick how early you start. Get exactly <strong>2 delays</strong>: one to set at the start,
+          one to drop before queue live so your refresh hits <strong>8:00 PM</strong> on the dot.
+          <a class="live-link" href="demo-live.html">Watch live demo →</a>
+        </p>
+      </div>
     </header>
 
     <div class="top-bar panel">
@@ -214,15 +220,18 @@ fs.writeFileSync(path.join(WWW, 'demo-live.html'), `${mobileHead('Live Demo — 
 </head>
 <body>
   <div class="page live-page">
-    <header>
-      <div class="badge live-badge">Live Demo Running</div>
-      <h1>Queue Optimizer — Live Demo</h1>
-      <div id="plan_context" class="plan-context" hidden></div>
-      <p class="subtitle">
-        Watch a compressed simulation. The same starting delay and single drop
-        you'd use on Wednesday — firing in real time right now.
-        <a class="live-link" href="index.html">← Back to optimizer</a>
-      </p>
+    <header class="app-header">
+      <img src="img/logo.png" alt="Fanatikz Resales" class="app-logo" width="88" height="88">
+      <div class="app-header-text">
+        <div class="badge live-badge">Live Demo Running</div>
+        <h1>Queue Optimizer — Live Demo</h1>
+        <div id="plan_context" class="plan-context" hidden></div>
+        <p class="subtitle">
+          Watch a compressed simulation. The same starting delay and single drop
+          you'd use on Wednesday — firing in real time right now.
+          <a class="live-link" href="index.html">← Back to optimizer</a>
+        </p>
+      </div>
     </header>
 
     <section class="panel live-controls">
