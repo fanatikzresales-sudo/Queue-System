@@ -4,9 +4,10 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 const AppSettings = registerPlugin('AppSettings');
+const PlanAlarm = registerPlugin('PlanAlarm');
 
 window.__DROP_REMINDER_MINUTES = 10;
-window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings };
+window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings, PlanAlarm };
 
 async function initNativeNotifications() {
   if (!Capacitor.isNativePlatform()) return;

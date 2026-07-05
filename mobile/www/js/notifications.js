@@ -22,6 +22,10 @@
     return global.CapNative && global.CapNative.AppSettings;
   }
 
+  function planAlarm() {
+    return global.CapNative && global.CapNative.PlanAlarm;
+  }
+
   function isNative() {
     return global.CapNative && global.CapNative.Capacitor &&
       global.CapNative.Capacitor.isNativePlatform &&
@@ -296,11 +300,36 @@
     return notifications;
   }
 
+  function toAlarmPayload(notifications) {
+    return notifications.map(n => ({
+      id: n.id,
+      title: n.title,
+      body: n.body,
+      channel: n.channelId || CHANNEL_ALERTS,
+      atMs: n.schedule.at instanceof Date ? n.schedule.at.getTime() : n.schedule.at,
+    }));
+  }
+
   async function scheduleNotifications(notifications) {
-    if (!notifications.length) return;
+    if (!notifications.length) return { method: 'none', count: 0 };
+
+    const alarms = toAlarmPayload(notifications);
+    const pa = planAlarm();
+
+    if (pa && typeof pa.scheduleAlarms === 'function') {
+      try {
+        const result = await pa.scheduleAlarms({ alarms });
+        return { method: 'native_alarm', count: result.scheduled || alarms.length };
+      } catch (err) {
+        console.warn('PlanAlarm.scheduleAlarms failed, trying Capacitor:', err);
+      }
+    }
+
+    if (!ln()) throw new Error('No notification backend available');
+
     try {
       await ln().schedule({ notifications });
-      return;
+      return { method: 'capacitor', count: notifications.length };
     } catch (err) {
       const fallback = notifications.map(n => {
         const copy = { ...n };
@@ -309,6 +338,33 @@
       });
       await ln().schedule({ notifications: fallback });
       console.warn('Scheduled without smallIcon after error:', err);
+      return { method: 'capacitor_no_icon', count: fallback.length };
+    }
+  }
+
+  async function showNotificationNow(id, title, body, channelId) {
+    const pa = planAlarm();
+    if (pa && typeof pa.showNow === 'function') {
+      try {
+        await pa.showNow({ id, title, body, channel: channelId || CHANNEL_ALERTS });
+        return true;
+      } catch (_) {}
+    }
+    if (!ln()) return false;
+    try {
+      await ln().schedule({
+        notifications: [{
+          id,
+          title: String(title).slice(0, 64),
+          body: String(body).slice(0, 240),
+          channelId: channelId || CHANNEL_ALERTS,
+          schedule: scheduleAt(Date.now() + 300),
+          sound: 'default',
+        }],
+      });
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -326,19 +382,22 @@
     const notifications = buildPlanNotifications(planId, name, plan, now);
 
     try {
-      await scheduleNotifications(notifications);
-      let pendingCount = notifications.length;
-      if (typeof ln().getPending === 'function') {
-        try {
-          const pending = await ln().getPending();
-          pendingCount = pending.notifications ? pending.notifications.length : pendingCount;
-        } catch (_) {}
-      }
+      const scheduleResult = await scheduleNotifications(notifications);
+      await showNotificationNow(
+        notifId(planId, 0),
+        `${name} — Plan active`,
+        `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
+        CHANNEL_ALERTS
+      );
       return {
         ok: true,
         scheduled: notifications.length,
-        pending: pendingCount,
+        method: scheduleResult.method,
         exactAlarm: await hasExactAlarmPermission(),
+        times: toAlarmPayload(notifications).map(a => ({
+          title: a.title,
+          at: new Date(a.atMs).toLocaleString(),
+        })),
       };
     } catch (err) {
       console.error('schedulePlanNotifications failed', err);
@@ -362,39 +421,51 @@
         channelId: CHANNEL_URGENT,
         schedule: scheduleAt(Date.now() + 5000),
         sound: 'default',
-        smallIcon: 'ic_stat_icon',
       }]);
-      return { ok: true, message: 'Test alert in 5 seconds — switch to another app now.' };
+      return { ok: true, message: 'Test alert in 5 seconds — minimize LDPlayer or switch apps and wait.' };
     } catch (err) {
       return { ok: false, reason: err.message };
     }
   }
 
   async function cancelPlanNotifications(planId) {
+    const ids = NOTIF_KINDS.map(k => notifId(planId, k));
+    const pa = planAlarm();
+    if (pa && typeof pa.cancelAlarms === 'function') {
+      try {
+        await pa.cancelAlarms({ ids });
+      } catch (_) {}
+    }
     if (!ln()) return;
-    const ids = NOTIF_KINDS.map(k => ({ id: notifId(planId, k) }));
     try {
-      await ln().cancel({ notifications: ids });
+      await ln().cancel({ notifications: ids.map(id => ({ id })) });
     } catch (_) {}
   }
 
   async function notifyNow(title, body, urgent) {
-    if (!isNative() || !ln()) return false;
+    if (!isNative()) return false;
     if (!(await ensurePermissions())) return false;
-    try {
-      await scheduleNotifications([{
-        id: Math.floor(Math.random() * 800000) + 100000,
-        title: String(title).slice(0, 64),
-        body: String(body).slice(0, 240),
-        channelId: urgent ? CHANNEL_URGENT : CHANNEL_ALERTS,
-        schedule: scheduleAt(Date.now() + 500),
-        sound: 'default',
-        smallIcon: 'ic_stat_icon',
-      }]);
-      return true;
-    } catch (_) {
-      return false;
-    }
+    return showNotificationNow(
+      Math.floor(Math.random() * 800000) + 100000,
+      title,
+      body,
+      urgent ? CHANNEL_URGENT : CHANNEL_ALERTS
+    );
+  }
+
+  function buildJsTimerFallback(planId, name, plan) {
+    const now = Date.now();
+    const items = buildPlanNotifications(planId, name, plan, now);
+    const timers = [];
+    items.forEach(item => {
+      const atMs = item.schedule.at.getTime();
+      const delay = atMs - Date.now();
+      if (delay <= 500) return;
+      timers.push(setTimeout(() => {
+        showNotificationNow(item.id, item.title, item.body, item.channelId);
+      }, delay));
+    });
+    return timers;
   }
 
   global.MobileNotifications = {
@@ -410,6 +481,7 @@
     cancelPlanNotifications,
     sendTestNotification,
     notifyNow,
+    buildJsTimerFallback,
     isNative,
   };
 })(typeof window !== 'undefined' ? window : global);

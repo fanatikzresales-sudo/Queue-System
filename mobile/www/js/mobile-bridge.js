@@ -127,6 +127,8 @@
     }
   };
 
+  const jsPlanTimers = {};
+
   function patchPlanManager() {
     if (!global.PM || global.PM.__mobilePatched) return;
 
@@ -139,23 +141,25 @@
       if (global.MobileNotifications && global.MobileNotifications.isNative()) {
         global.MobileNotifications.schedulePlanNotifications(id, name, plan).then(result => {
           if (result.ok) {
+            if (global.MobileNotifications.buildJsTimerFallback) {
+              jsPlanTimers[id] = global.MobileNotifications.buildJsTimerFallback(id, name, plan);
+            }
+            const times = (result.times || [])
+              .map(t => `• ${t.at} — ${t.title}`)
+              .join('\n');
             const exact = result.exactAlarm === false
-              ? '\n\nTip: also enable "Alarms & reminders" in app settings for on-time alerts.'
+              ? '\n\nTip: enable "Alarms & reminders" in app settings too.'
               : '';
             showNotifError(
-              `Scheduled ${result.scheduled} alerts for "${name}".\n` +
-              `• 10 min before start\n` +
-              `• At start time\n` +
-              `• 10 min before drop\n` +
-              `• At drop time\n` +
-              `You can leave the app — alerts will still fire.${exact}`
+              `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n\n` +
+              (times || 'Alerts set for your plan times.') +
+              '\n\nKeep LDPlayer running in the background. Tap Test alert first to verify.${exact}'
             );
           } else if (result.reason === 'permission_denied') {
-              showNotifError(
-                'Notifications are blocked.\n\n' +
-                'Go to Settings → Apps → FR Queue Optimizer → Notifications → Allow.\n\n' +
-                'On LDPlayer: enable notifications for the app in emulator settings.'
-              );
+            showNotifError(
+              'Notifications are blocked.\n\n' +
+              'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
+            );
           } else {
             showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));
           }
@@ -166,6 +170,10 @@
     };
 
     global.PM.cancel = function (id, silent) {
+      if (jsPlanTimers[id]) {
+        jsPlanTimers[id].forEach(t => clearTimeout(t));
+        delete jsPlanTimers[id];
+      }
       if (global.MobileNotifications) {
         global.MobileNotifications.cancelPlanNotifications(id);
       }
