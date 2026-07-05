@@ -139,7 +139,7 @@ REM Use project-local Gradle home — ignores broken org.gradle.java.home in use
 set "GRADLE_USER_HOME=%MOBILE_DIR%\android\.gradle-local"
 if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
 
-node "%MOBILE_DIR%\scripts\write-gradle-java.js"
+call "%MOBILE_DIR%\write-gradle-java.bat"
 if errorlevel 1 (
     echo  ERROR: Could not configure Java for Gradle.
     goto :fail

@@ -20,24 +20,29 @@ if not defined JAVA_HOME (
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 echo Using Java: %JAVA_HOME%
 java -version
+echo.
 
 set "GRADLE_USER_HOME=%CD%\android\.gradle-local"
 if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
 
-set "JAVA_HOME=%JAVA_HOME%"
-node "%CD%\scripts\write-gradle-java.js"
+call "%~dp0write-gradle-java.bat"
+if errorlevel 1 (
+    echo.
+    echo ERROR: Could not write Gradle Java config.
+    pause
+    exit /b 1
+)
 
 if exist "%USERPROFILE%\.gradle\gradle.properties" (
     echo.
-    echo Checking user Gradle config...
     findstr /i "jdk-17" "%USERPROFILE%\.gradle\gradle.properties" >nul 2>&1
     if not errorlevel 1 (
-        echo WARNING: Your file has jdk-17:
+        echo WARNING: Your user Gradle file still has jdk-17:
         echo   %USERPROFILE%\.gradle\gradle.properties
-        echo Delete the line org.gradle.java.home=...jdk-17... or delete that file.
+        echo Delete the org.gradle.java.home line that mentions jdk-17.
     )
 )
 
 echo.
-echo Done. Now run build-android.bat
+echo SUCCESS — Java 21 is configured. Now run build-android.bat
 pause
