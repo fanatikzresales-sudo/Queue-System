@@ -60,6 +60,55 @@
     } catch (_) {}
   }
 
+  async function refreshNotifBanner() {
+    const banner = document.getElementById('notif-permission-banner');
+    const statusEl = document.getElementById('npb-status');
+    if (!banner || !isCapacitor || !global.MobileNotifications) return;
+
+    const enabled = await global.MobileNotifications.areNotificationsEnabled();
+    banner.hidden = false;
+    if (statusEl) {
+      statusEl.textContent = enabled
+        ? 'Notifications are ON. Use "Test alert" to verify, then activate a plan.'
+        : 'Notifications are OFF. Tap "Open Notification Settings" and turn them on.';
+      statusEl.classList.toggle('npb-status-ok', enabled);
+    }
+  }
+
+  function setupNotifBanner() {
+    if (!isCapacitor || !global.MobileNotifications) return;
+
+    const enableBtn = document.getElementById('npb-enable-btn');
+    const testBtn = document.getElementById('npb-test-btn');
+
+    if (enableBtn) {
+      enableBtn.addEventListener('click', async () => {
+        await global.MobileNotifications.requestPermissionDialog();
+        if (!(await global.MobileNotifications.areNotificationsEnabled())) {
+          await global.MobileNotifications.openNotificationSettings();
+        }
+        setTimeout(refreshNotifBanner, 1500);
+      });
+    }
+
+    if (testBtn) {
+      testBtn.addEventListener('click', async () => {
+        const result = await global.MobileNotifications.sendTestNotification();
+        if (result.ok) {
+          alert(result.message + '\n\nSwitch to another app and wait 5 seconds.');
+        } else if (result.reason === 'permission_denied') {
+          alert('Notifications still off. Use "Open Notification Settings" first.');
+        } else {
+          alert('Test failed: ' + (result.reason || 'unknown'));
+        }
+        refreshNotifBanner();
+      });
+    }
+
+    refreshNotifBanner();
+    document.addEventListener('app-resumed', refreshNotifBanner);
+  }
+
   global.fireOSNotification = function fireOSNotification(title, body, urgent) {
     if (global.MobileNotifications && global.MobileNotifications.isNative()) {
       global.MobileNotifications.notifyNow(title, body, urgent);

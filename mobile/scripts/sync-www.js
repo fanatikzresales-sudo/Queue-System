@@ -79,6 +79,18 @@ fs.writeFileSync(path.join(WWW, 'index.html'), `${mobileHead('FR Queue Optimizer
       <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
     </div>
 
+    <div id="notif-permission-banner" class="notif-permission-banner" hidden>
+      <div class="npb-inner">
+        <strong>Enable drop alerts</strong>
+        <p id="npb-status">Notifications are required for start/drop reminders when you leave the app.</p>
+        <p class="npb-hint">LDPlayer often skips the &quot;Allow&quot; popup — use the buttons below.</p>
+        <div class="npb-btns">
+          <button type="button" id="npb-enable-btn" class="primary npb-btn">Open Notification Settings</button>
+          <button type="button" id="npb-test-btn" class="npb-btn npb-test">Test alert in 5 sec</button>
+        </div>
+      </div>
+    </div>
+
     <header>
       <div class="badge">Walmart · Pokemon Queue</div>
       <h1>FR Queue Optimizer</h1>

@@ -1,9 +1,11 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 
-window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen };
+const AppSettings = registerPlugin('AppSettings');
+
+window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings };
 
 async function initNativeNotifications() {
   if (!Capacitor.isNativePlatform()) return;

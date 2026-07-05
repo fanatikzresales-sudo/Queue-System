@@ -7,11 +7,14 @@
   const CHANNEL_ALERTS = 'fr_queue_alerts';
   const CHANNEL_URGENT = 'fr_queue_urgent';
 
-  let LocalNotifications = null;
   let channelsReady = false;
 
   function ln() {
     return global.CapNative && global.CapNative.LocalNotifications;
+  }
+
+  function appSettings() {
+    return global.CapNative && global.CapNative.AppSettings;
   }
 
   function isNative() {
@@ -52,43 +55,91 @@
     channelsReady = true;
   }
 
-  async function ensurePermissions() {
-    if (!ln()) return false;
-
-    await ensureChannels();
-
-    let perms = await ln().checkPermissions();
-    if (perms.display !== 'granted') {
-      perms = await ln().requestPermissions();
-    }
-    if (perms.display !== 'granted') {
-      return false;
-    }
-
-    // Android 12+ — exact alarm timing for drop-at-second precision
-    if (typeof ln().checkExactNotificationSetting === 'function') {
+  async function areNotificationsEnabled() {
+    if (appSettings() && typeof appSettings().checkNotificationEnabled === 'function') {
       try {
-        const exact = await ln().checkExactNotificationSetting();
-        if (exact.exact_alarm !== 'granted' && typeof ln().changeExactNotificationSetting === 'function') {
-          await ln().changeExactNotificationSetting();
-        }
+        const r = await appSettings().checkNotificationEnabled();
+        return Boolean(r.enabled);
       } catch (_) {}
     }
+    if (!ln()) return false;
+    try {
+      const p = await ln().checkPermissions();
+      return p.display === 'granted';
+    } catch (_) {
+      return false;
+    }
+  }
 
-    return true;
+  async function openNotificationSettings() {
+    if (appSettings() && typeof appSettings().openNotificationSettings === 'function') {
+      await appSettings().openNotificationSettings();
+      return true;
+    }
+    return false;
+  }
+
+  /** Request permission — shows system dialog on Android 13+ only. */
+  async function requestPermissionDialog() {
+    if (!ln()) return false;
+    await ensureChannels();
+    try {
+      const result = await ln().requestPermissions();
+      return result.display === 'granted';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * Full permission flow for mobile:
+   * 1. Try system dialog (Android 13+)
+   * 2. Open app notification settings (LDPlayer / Android 9–12 — no popup)
+   */
+  async function ensurePermissions() {
+    if (!ln()) return false;
+    await ensureChannels();
+
+    if (await areNotificationsEnabled()) {
+      return true;
+    }
+
+    await requestPermissionDialog();
+    if (await areNotificationsEnabled()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  async function ensurePermissionsWithPrompt() {
+    const enabled = await areNotificationsEnabled();
+    if (enabled) return true;
+
+    await requestPermissionDialog();
+    if (await areNotificationsEnabled()) return true;
+
+    const open = confirm(
+      'Notifications are OFF for this app.\n\n' +
+      'LDPlayer and older Android versions do NOT show an "Allow" popup — ' +
+      'you must turn them on manually.\n\n' +
+      'Tap OK to open Notification Settings, enable "Allow notifications", ' +
+      'then come back and tap "Test alert".'
+    );
+    if (open) {
+      await openNotificationSettings();
+    }
+    return areNotificationsEnabled();
   }
 
   function scheduleAt(whenMs) {
-    return {
-      at: new Date(whenMs),
-      allowWhileIdle: true,
-    };
+    return { at: new Date(whenMs), allowWhileIdle: true };
   }
 
   async function schedulePlanNotifications(planId, name, plan) {
     if (!isNative() || !ln()) return { ok: false, reason: 'not_native' };
 
-    const allowed = await ensurePermissions();
+    const allowed = await ensurePermissionsWithPrompt();
     if (!allowed) {
       return { ok: false, reason: 'permission_denied' };
     }
@@ -96,7 +147,6 @@
     const now = Date.now();
     const notifications = [];
 
-    // Immediate confirmation so user knows alerts are armed
     notifications.push({
       id: notifId(planId, 0),
       title: `${name} — Plan active`,
@@ -109,14 +159,13 @@
       extra: { planId, type: 'confirmed' },
     });
 
-    const startAt = plan.start_ts_ms;
-    if (startAt > now + 3000) {
+    if (plan.start_ts_ms > now + 3000) {
       notifications.push({
         id: notifId(planId, 1),
         title: `${name} — Start your task`,
         body: `Set delay to ${plan.start_delay_label} at ${plan.start_time_display}`,
         channelId: CHANNEL_ALERTS,
-        schedule: scheduleAt(startAt),
+        schedule: scheduleAt(plan.start_ts_ms),
         sound: 'default',
         smallIcon: 'ic_stat_icon',
         extra: { planId, type: 'start' },
@@ -165,11 +214,34 @@
 
     try {
       await ln().schedule({ notifications });
-      const pending = await ln().getPending().catch(() => ({ notifications: [] }));
-      return { ok: true, scheduled: notifications.length, pending: pending.notifications?.length ?? 0 };
+      return { ok: true, scheduled: notifications.length };
     } catch (err) {
       console.error('schedulePlanNotifications failed', err);
       return { ok: false, reason: err.message || 'schedule_failed' };
+    }
+  }
+
+  async function sendTestNotification() {
+    if (!isNative() || !ln()) return { ok: false, reason: 'not_native' };
+
+    const allowed = await ensurePermissionsWithPrompt();
+    if (!allowed) return { ok: false, reason: 'permission_denied' };
+
+    try {
+      await ln().schedule({
+        notifications: [{
+          id: 999001,
+          title: 'FR Queue Optimizer — Test alert',
+          body: 'If you see this, background notifications are working!',
+          channelId: CHANNEL_URGENT,
+          schedule: scheduleAt(Date.now() + 5000),
+          sound: 'default',
+          smallIcon: 'ic_stat_icon',
+        }],
+      });
+      return { ok: true, message: 'Test alert in 5 seconds — switch to another app now.' };
+    } catch (err) {
+      return { ok: false, reason: err.message };
     }
   }
 
@@ -181,7 +253,6 @@
     } catch (_) {}
   }
 
-  /** Fire a notification in a few seconds (for in-app popups). */
   async function notifyNow(title, body, urgent) {
     if (!isNative() || !ln()) return false;
     if (!(await ensurePermissions())) return false;
@@ -204,9 +275,14 @@
   }
 
   global.MobileNotifications = {
+    areNotificationsEnabled,
+    openNotificationSettings,
+    requestPermissionDialog,
     ensurePermissions,
+    ensurePermissionsWithPrompt,
     schedulePlanNotifications,
     cancelPlanNotifications,
+    sendTestNotification,
     notifyNow,
     isNative,
   };
