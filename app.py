@@ -25,6 +25,7 @@ from scheduler import (
     create_demo_target,
     get_timezone,
     next_walmart_queue_time,
+    parse_timing_mode,
     preset_schedules,
     recommended_start_delays,
     schedule_to_dict,
@@ -143,6 +144,11 @@ def demo_live_api():
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
 
+    try:
+        timing_mode = parse_timing_mode(request.args.get("timing_mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     # Accept optional final_delay hint from preset cards
     try:
         requested_final = int(request.args.get("final_delay", 0)) or None
@@ -167,6 +173,7 @@ def demo_live_api():
             start=start,
             tz_key=tz_key,
             initial_delay_ms=demo_start_delay,
+            timing_mode=timing_mode,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -174,6 +181,7 @@ def demo_live_api():
     return jsonify(
         {
             "mode": "live_demo",
+            "timing_mode": timing_mode.value,
             "demo_duration_minutes": LIVE_DEMO_MINUTES,
             "initial_delay_ms": demo_start_delay,
             "final_delay_ms": demo_final_delay,
@@ -199,12 +207,17 @@ def preset_schedules_api():
     tz_key = (request.args.get("timezone") or "CDT").upper()
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+    try:
+        timing_mode = parse_timing_mode(request.args.get("timing_mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     tz = get_timezone(tz_key)
     target = next_walmart_queue_time(tz_key=tz_key)
     target_local = target.astimezone(tz)          # convert to display timezone
-    plans = preset_schedules(target=target, tz_key=tz_key)
+    plans = preset_schedules(target=target, tz_key=tz_key, timing_mode=timing_mode)
     return jsonify(
         {
+            "timing_mode": timing_mode.value,
             "queue_live": target_local.strftime("%I:%M %p").lstrip("0")
             + f" {target_local.tzname()} — Wednesday {target_local.strftime('%B %d, %Y')}",
             "queue_ts_ms": int(target.timestamp() * 1000),  # for frontend auto-refresh
@@ -232,6 +245,9 @@ def preset_schedules_api():
                     "start_ts_ms": p.start_ts_ms,
                     "drop_ts_ms": p.drop_ts_ms,
                     "queue_ts_ms": p.queue_ts_ms,
+                    "timing_mode": p.timing_mode,
+                    "effective_switch_ts_ms": p.effective_switch_ts_ms,
+                    "effective_switch_time_display": p.effective_switch_time_display,
                 }
                 for p in plans
             ],
@@ -248,6 +264,11 @@ def optimize():
     initial_delay_ms = int(data.get("initial_delay_ms", 60000))
     custom_date = data.get("custom_date", "").strip()          # YYYY-MM-DD
     queue_time_override = data.get("queue_time_override", "").strip()  # HH:MM
+
+    try:
+        timing_mode = parse_timing_mode(data.get("timing_mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
@@ -286,9 +307,10 @@ def optimize():
             start=start,
             tz_key=tz_key,
             initial_delay_ms=initial_delay_ms,
+            timing_mode=timing_mode,
         )
         mode = "demo" if demo else ("custom" if custom_date else "live")
-        return jsonify({"mode": mode, **schedule_to_dict(schedule)})
+        return jsonify({"mode": mode, "timing_mode": timing_mode.value, **schedule_to_dict(schedule)})
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400
 

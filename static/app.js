@@ -20,8 +20,31 @@ const activePlansSection = document.getElementById("active-plans-section");
 const activePlansList  = document.getElementById("active-plans-list");
 const activePlansCount = document.getElementById("active-plans-count");
 const cancelAllBtn     = document.getElementById("cancel-all-btn");
+const timingModeHintEl = document.getElementById("timing_mode_hint");
+const timingModeBtns   = document.querySelectorAll(".timing-mode-btn");
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const TIMING_MODE_HINTS = {
+  instant: "Drop at the boundary — delay applies immediately.",
+  deferred: "Drop one cycle early — bot finishes its last slow refresh first.",
+};
+
+let currentTimingMode = "instant";
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function dropStepTitle(p) {
+  if (p.timing_mode === "deferred") {
+    return `Drop once — bot finishes 1 more slow refresh, then switches`;
+  }
+  return `Drop once — ${p.drop_minutes_label} before queue`;
+}
+
+function dropStepSub(p) {
+  if (p.timing_mode === "deferred" && p.effective_switch_time_display) {
+    return `${p.refreshes_phase2} refreshes → queue live · final delay active at ${p.effective_switch_time_display}`;
+  }
+  return `${p.refreshes_phase2} refreshes → queue live`;
+}
 
 function formatMs(ms) {
   if (ms >= 60000) return `${(ms / 60000).toFixed(1)} min (${ms.toLocaleString()} ms)`;
@@ -29,7 +52,34 @@ function formatMs(ms) {
   return `${ms} ms`;
 }
 
-function pad2(n) { return String(n).padStart(2, "0"); }
+function getTimingMode() {
+  return currentTimingMode;
+}
+
+function setTimingMode(mode) {
+  currentTimingMode = mode === "deferred" ? "deferred" : "instant";
+  timingModeBtns.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === currentTimingMode);
+  });
+  if (timingModeHintEl) {
+    timingModeHintEl.textContent = TIMING_MODE_HINTS[currentTimingMode];
+  }
+}
+
+function timingModeLabel(mode) {
+  return mode === "deferred" ? "Deferred Switch" : "Instant Switch";
+}
+
+timingModeBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.mode === currentTimingMode) return;
+    setTimingMode(btn.dataset.mode);
+    loadPresets();
+    resultsPanelEl.hidden = true;
+  });
+});
+
+setTimingMode("instant");
 
 function formatCountdown(ms) {
   if (ms <= 0) return "now";
@@ -355,10 +405,9 @@ function showNameInput({ anchorEl, defaultName: defName, onActivate }) {
   });
 }
 
-// ── Preset cards ──────────────────────────────────────────────────────────────
-
 function renderPresets(data) {
   queueLiveLabel.textContent = `Queue goes live: ${data.queue_live}`;
+  if (data.timing_mode) setTimingMode(data.timing_mode);
 
   if (!data.plans.length) {
     presetGridEl.innerHTML = '<p class="placeholder">No plans available.</p>';
@@ -397,10 +446,10 @@ function renderPresets(data) {
         <div class="pc-step pc-drop">
           <div class="pc-step-num">2</div>
           <div class="pc-step-info">
-            <div class="pc-step-title">Drop once — ${p.drop_minutes_label} before queue</div>
+            <div class="pc-step-title pc-drop-title-deferred">${dropStepTitle(p)}</div>
             <div class="pc-time">${p.drop_time_display}</div>
             <div class="pc-delay-chip final">${p.final_delay_label}</div>
-            <div class="pc-sub">${p.refreshes_phase2} refreshes → queue live</div>
+            <div class="pc-sub">${dropStepSub(p)}</div>
           </div>
         </div>
         <div class="pc-arrow">↓</div>
@@ -445,6 +494,7 @@ function renderPresets(data) {
         timezone: timezoneEl.value,
         final_delay: String(p.final_delay_ms),
         label: p.label,
+        timing_mode: p.timing_mode || getTimingMode(),
       });
       window.open(`/demo-live?${params.toString()}`, "_blank");
     });
@@ -464,9 +514,14 @@ function renderPresets(data) {
 async function loadPresets() {
   presetGridEl.innerHTML = '<div class="preset-loading">Computing schedules…</div>';
   try {
-    const res = await fetch(`/api/preset-schedules?timezone=${encodeURIComponent(timezoneEl.value)}`);
+    const params = new URLSearchParams({
+      timezone: timezoneEl.value,
+      timing_mode: getTimingMode(),
+    });
+    const res = await fetch(`/api/preset-schedules?${params.toString()}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed");
+    if (data.timing_mode) setTimingMode(data.timing_mode);
     renderPresets(data);
     schedulePresetsRefresh(data.queue_ts_ms);
   } catch (err) {
@@ -507,7 +562,8 @@ function renderResults(data) {
     : "Warning — last refresh may not align exactly";
 
   summaryEl.innerHTML = `
-    <div><span>Mode</span><span>${data.mode === "demo" ? "Demo test" : data.mode === "custom" ? "Custom date" : "Live · Wednesday 8 PM"}</span></div>
+    <div><span>Schedule</span><span>${data.mode === "demo" ? "Demo test" : data.mode === "custom" ? "Custom date" : "Live · Wednesday 8 PM"}</span></div>
+    <div><span>Timing</span><span>${timingModeLabel(data.timing_mode || "instant")}</span></div>
     <div><span>Timezone</span><span>${data.timezone}</span></div>
     <div><span>Queue live</span><span>${data.queue_live}</span></div>
     <div><span>Start</span><span>${data.start_time}</span></div>
@@ -515,6 +571,7 @@ function renderResults(data) {
 
   const s1 = data.drop_schedule[0];
   const s2 = data.drop_schedule[1];
+  const isDeferred = data.timing_mode === "deferred";
 
   if (s1 && s2) {
     twoStepCardsEl.innerHTML = `
@@ -533,6 +590,9 @@ function renderResults(data) {
           <strong>Drop delay once</strong>
           <p class="sc-time">${s2.at} &nbsp;·&nbsp; ${s2.minutes_before} before queue</p>
           <p>Change delay to <span class="highlight">${s2.delay_label}</span></p>
+          ${isDeferred && s2.effective_switch_at
+            ? `<small class="pc-effective-switch">Final delay active at ${s2.effective_switch_at}</small>`
+            : ""}
           <small>${s2.refreshes_until_next} refreshes → queue live</small>
         </div>
         <div class="custom-alert-area" id="custom-alert-area">
@@ -561,6 +621,8 @@ function renderResults(data) {
           start_ts_ms: s1.at_ts_ms,
           drop_ts_ms: s2.at_ts_ms,
           queue_ts_ms: data.drop_schedule.at(-1)?.at_ts_ms || 0,
+          timing_mode: data.timing_mode || "instant",
+          effective_switch_time_display: s2.effective_switch_at || s2.at,
         };
         showNameInput({
           anchorEl: alertArea,
@@ -603,6 +665,7 @@ async function runOptimize() {
         demo: demoModeEl.checked,
         custom_date: customDateEl.value || "",
         queue_time_override: queueTimeEl.value || "",
+        timing_mode: getTimingMode(),
       }),
     });
     const data = await res.json();
@@ -632,6 +695,7 @@ optimizeBtn.addEventListener("click", () => {
     const params = new URLSearchParams({
       timezone: timezoneEl.value,
       delay: String(parseInt(initialDelayEl.value, 10) || 60000),
+      timing_mode: getTimingMode(),
     });
     window.location.href = `/demo-live?${params.toString()}`;
     return;

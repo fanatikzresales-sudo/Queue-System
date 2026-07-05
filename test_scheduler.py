@@ -6,11 +6,13 @@ from zoneinfo import ZoneInfo
 
 from scheduler import (
     CENTRAL,
+    TimingMode,
     build_schedule,
     create_demo_target,
     find_aligned_delay,
     get_timezone,
     next_walmart_queue_time,
+    preset_schedules,
     recommended_start_delays,
     schedule_to_dict,
 )
@@ -111,6 +113,80 @@ class TestSchedule(unittest.TestCase):
         self.assertIn("drop_schedule", data)
         self.assertEqual(len(data["drop_schedule"]), 2)
         self.assertTrue(data["hits_target_exactly"])
+
+
+class TestTimingMode(unittest.TestCase):
+    def _target(self) -> datetime:
+        return datetime(2026, 7, 8, 20, 0, 0, tzinfo=CT)
+
+    def test_deferred_drop_is_one_cycle_earlier_than_instant(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        instant = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            timing_mode=TimingMode.INSTANT,
+        )
+        deferred = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            timing_mode=TimingMode.DEFERRED,
+        )
+        instant_drop = schedule_to_dict(instant)["drop_schedule"][1]["at_ts_ms"]
+        deferred_drop = schedule_to_dict(deferred)["drop_schedule"][1]["at_ts_ms"]
+        self.assertEqual(deferred_drop, instant_drop - 60_000)
+        self.assertEqual(
+            schedule_to_dict(deferred)["drop_schedule"][1]["effective_switch_ts_ms"],
+            instant_drop,
+        )
+
+    def test_deferred_and_instant_share_refresh_timeline(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        instant = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            timing_mode=TimingMode.INSTANT,
+        )
+        deferred = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            timing_mode=TimingMode.DEFERRED,
+        )
+        self.assertEqual(instant.final_refresh_times, deferred.final_refresh_times)
+
+    def test_deferred_still_hits_target_exactly(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            timing_mode=TimingMode.DEFERRED,
+        )
+        self.assertTrue(schedule.hits_target_exactly)
+        self.assertEqual(schedule.final_refresh_times[-1], target)
+
+    def test_deferred_drop_command_not_before_start(self):
+        target = self._target()
+        plans = preset_schedules(target=target, tz_key="CDT", timing_mode=TimingMode.DEFERRED)
+        self.assertTrue(plans)
+        for plan in plans:
+            self.assertGreaterEqual(plan.drop_ts_ms, plan.start_ts_ms)
+
+    def test_preset_deferred_differs_from_instant_drop_time(self):
+        target = self._target()
+        instant_plans = {p.final_delay_ms: p for p in preset_schedules(target=target, timing_mode=TimingMode.INSTANT)}
+        deferred_plans = {p.final_delay_ms: p for p in preset_schedules(target=target, timing_mode=TimingMode.DEFERRED)}
+        for final_delay, instant in instant_plans.items():
+            deferred = deferred_plans.get(final_delay)
+            self.assertIsNotNone(deferred)
+            self.assertLess(deferred.drop_ts_ms, instant.drop_ts_ms)
+            self.assertEqual(deferred.effective_switch_ts_ms, instant.drop_ts_ms)
 
 
 if __name__ == "__main__":
