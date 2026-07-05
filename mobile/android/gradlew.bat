@@ -38,7 +38,15 @@ for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 
-@rem Find java.exe
+@rem Find java.exe — ignore broken system JAVA_HOME (e.g. deleted jdk-17)
+if defined JAVA_HOME (
+    set "JAVA_HOME=%JAVA_HOME:"=%"
+    set "_JAVA_TEST=%JAVA_HOME%\bin\java.exe"
+    if not exist "%_JAVA_TEST%" set "JAVA_HOME="
+)
+
+if not defined JAVA_HOME call :findJdk21
+
 if defined JAVA_HOME goto findJavaFromJavaHome
 
 set JAVA_EXE=java.exe
@@ -46,12 +54,24 @@ set JAVA_EXE=java.exe
 if %ERRORLEVEL% equ 0 goto execute
 
 echo. 1>&2
-echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
-echo. 1>&2
-echo Please set the JAVA_HOME variable in your environment to match the 1>&2
-echo location of your Java installation. 1>&2
-
+echo ERROR: Java JDK 21 not found. Install from https://adoptium.net/temurin/releases/?version=21 1>&2
+echo Or open Android Studio once ^(bundled JBR^). 1>&2
 goto fail
+
+:findJdk21
+for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do (
+    if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J" & goto :eof
+)
+for /d %%J in ("C:\Program Files\Microsoft\jdk-21*") do (
+    if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J" & goto :eof
+)
+for /d %%J in ("C:\Program Files\Java\jdk-21*") do (
+    if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J" & goto :eof
+)
+if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
+    set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+)
+goto :eof
 
 :findJavaFromJavaHome
 set JAVA_HOME=%JAVA_HOME:"=%

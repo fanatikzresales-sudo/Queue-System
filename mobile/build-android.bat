@@ -87,12 +87,7 @@ if defined JAVA_HOME (
     exit /b 1
 )
 
-echo.
-echo  [4/4] Building APK (gradlew assembleDebug)...
-cd android
-call gradlew.bat --stop 2>nul
-set "JAVA_FWD=%JAVA_HOME:\=/%"
-call gradlew.bat assembleDebug "-Dorg.gradle.java.home=%JAVA_FWD%"
+REM Auto-detect Android SDK
 if not defined ANDROID_HOME (
     if exist "%LOCALAPPDATA%\Android\Sdk\platforms" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
 )
@@ -106,19 +101,10 @@ if not defined ANDROID_HOME (
 if not defined ANDROID_HOME (
     echo  ERROR: Android SDK not found.
     echo.
-    echo  You have Android Studio, but Gradle needs the SDK path.
-    echo.
-    echo  Find your SDK path in Android Studio:
+    echo  Find SDK path in Android Studio:
     echo    Settings -^> Languages ^& Frameworks -^> Android SDK
-    echo    Copy "Android SDK Location" at the top
-    echo.
-    echo  Then create this file:
-    echo    C:\Queue-System\mobile\android\local.properties
-    echo.
-    echo  With one line ^(use YOUR path, forward slashes OK^):
+    echo  Create C:\Queue-System\mobile\android\local.properties with:
     echo    sdk.dir=C:/Users/YOURNAME/AppData/Local/Android/Sdk
-    echo.
-    echo  Or set ANDROID_HOME system env var to that folder, then re-run.
     echo.
     pause
     exit /b 1
@@ -127,7 +113,6 @@ if not defined ANDROID_HOME (
 set "PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%"
 echo  Android SDK: %ANDROID_HOME%
 
-REM Gradle reads sdk.dir from local.properties (required even if ANDROID_HOME is set)
 set "SDK_FWD=%ANDROID_HOME:\=/%"
 echo sdk.dir=%SDK_FWD%> "%MOBILE_DIR%\android\local.properties"
 echo  Wrote android\local.properties
@@ -149,14 +134,26 @@ if errorlevel 1 goto :fail
 
 echo.
 echo  [4/4] Building APK (gradlew assembleDebug)...
+
+REM Use project-local Gradle home — ignores broken org.gradle.java.home in user profile
+set "GRADLE_USER_HOME=%MOBILE_DIR%\android\.gradle-local"
+if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
+
+node "%MOBILE_DIR%\scripts\write-gradle-java.js"
+if errorlevel 1 (
+    echo  ERROR: Could not configure Java for Gradle.
+    goto :fail
+)
+
 cd android
+call gradlew.bat --stop 2>nul
 call gradlew.bat assembleDebug
 if errorlevel 1 (
     echo.
     echo  Gradle failed. You may need:
     echo    - Java JDK 21  https://adoptium.net/temurin/releases/?version=21
     echo    - Android Studio + SDK  https://developer.android.com/studio
-    echo  Set ANDROID_HOME to your SDK path if needed.
+    echo  Fix broken JAVA_HOME in Windows Environment Variables if it still says jdk-17.
     cd ..
     goto :fail
 )
