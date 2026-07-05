@@ -123,8 +123,10 @@ call npm install
 if errorlevel 1 goto :fail
 
 echo.
-echo  [2/4] npm run build...
-call npm run build
+echo  [2/4] Building web assets (no Python required)...
+call npm run sync:www
+if errorlevel 1 goto :fail
+call npm run build:js
 if errorlevel 1 goto :fail
 
 echo.
