@@ -512,6 +512,14 @@ def build_schedule(
                 "Try an earlier start window or use Instant Switch mode."
             )
 
+    if timing_mode == TimingMode.DEFERRED:
+        command_at = drop_command_at(steps[1].at, delay, timing_mode)
+        if command_at < start:
+            raise ValueError(
+                "Deferred switch would require dropping before task start. "
+                "Try an earlier start window or use Instant Switch mode."
+            )
+
     final_refresh_times = _simulate_refreshes(steps, target)
     return Schedule(
         target=target,
