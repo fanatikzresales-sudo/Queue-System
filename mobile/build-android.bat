@@ -46,21 +46,27 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Capacitor 8 requires Java 21 — detect JDK 21 first, then Android Studio JBR
-if not defined JAVA_HOME (
-    for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do set "JAVA_HOME=%%~J"
+REM Capacitor 8 requires Java 21 — find a working JDK (ignore broken system JAVA_HOME)
+set "JAVA_HOME="
+for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do (
+    if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J"
 )
 if not defined JAVA_HOME (
-    for /d %%J in ("C:\Program Files\Microsoft\jdk-21*") do set "JAVA_HOME=%%~J"
+    for /d %%J in ("C:\Program Files\Microsoft\jdk-21*") do (
+        if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J"
+    )
 )
 if not defined JAVA_HOME (
-    for /d %%J in ("C:\Program Files\Java\jdk-21*") do set "JAVA_HOME=%%~J"
+    for /d %%J in ("C:\Program Files\Java\jdk-21*") do (
+        if exist "%%~J\bin\java.exe" set "JAVA_HOME=%%~J"
+    )
 )
 if not defined JAVA_HOME (
     if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
         set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
     )
 )
+
 if defined JAVA_HOME (
     set "PATH=%JAVA_HOME%\bin;%PATH%"
     echo  Java: %JAVA_HOME%
@@ -68,21 +74,25 @@ if defined JAVA_HOME (
 ) else (
     echo  ERROR: Java JDK 21 not found.
     echo.
-    echo  Capacitor 8 needs JDK 21 ^(JDK 17 is too old — causes "invalid source release: 21"^).
+    echo  Your old JAVA_HOME may point to jdk-17 that no longer exists.
+    echo  Capacitor 8 needs JDK 21.
     echo.
-    echo  Install JDK 21:
-    echo    1. Go to https://adoptium.net/temurin/releases/?version=21
-    echo    2. Download Windows x64 .msi and run it
-    echo    3. CHECK "Set JAVA_HOME" and "Add to PATH" during install
-    echo    4. Close this window, open a NEW cmd, run build-android.bat again
-    echo.
-    echo  Or use Android Studio's bundled JDK — open Android Studio once first.
+    echo  Fix:
+    echo    1. Install JDK 21: https://adoptium.net/temurin/releases/?version=21
+    echo    2. Windows Search -^> "Environment Variables"
+    echo    3. Delete or fix JAVA_HOME if it says jdk-17
+    echo    4. Close ALL cmd windows, run build-android.bat again
     echo.
     pause
     exit /b 1
 )
 
-REM Auto-detect Android SDK
+echo.
+echo  [4/4] Building APK (gradlew assembleDebug)...
+cd android
+call gradlew.bat --stop 2>nul
+set "JAVA_FWD=%JAVA_HOME:\=/%"
+call gradlew.bat assembleDebug "-Dorg.gradle.java.home=%JAVA_FWD%"
 if not defined ANDROID_HOME (
     if exist "%LOCALAPPDATA%\Android\Sdk\platforms" set "ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk"
 )
