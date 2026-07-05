@@ -140,6 +140,10 @@ if errorlevel 1 goto :fail
 echo.
 echo  [4/4] Building APK (gradlew assembleDebug)...
 
+REM Remove old vector icon that conflicts with PNG notification icon
+if exist "%MOBILE_DIR%\android\app\src\main\res\drawable\ic_stat_icon.xml" del /f "%MOBILE_DIR%\android\app\src\main\res\drawable\ic_stat_icon.xml"
+if exist "%MOBILE_DIR%\android\app\src\main\res\drawable\ic_stat_icon.png" del /f "%MOBILE_DIR%\android\app\src\main\res\drawable\ic_stat_icon.png"
+
 REM Use project-local Gradle home — ignores broken org.gradle.java.home in user profile
 set "GRADLE_USER_HOME=%MOBILE_DIR%\android\.gradle-local"
 if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
