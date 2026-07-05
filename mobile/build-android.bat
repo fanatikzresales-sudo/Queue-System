@@ -46,12 +46,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Auto-detect Java JDK if JAVA_HOME not set
+REM Capacitor 8 requires Java 21 — detect JDK 21 first, then Android Studio JBR
 if not defined JAVA_HOME (
-    for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-17*") do set "JAVA_HOME=%%~J"
+    for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do set "JAVA_HOME=%%~J"
 )
 if not defined JAVA_HOME (
-    for /d %%J in ("C:\Program Files\Java\jdk-17*") do set "JAVA_HOME=%%~J"
+    for /d %%J in ("C:\Program Files\Microsoft\jdk-21*") do set "JAVA_HOME=%%~J"
+)
+if not defined JAVA_HOME (
+    for /d %%J in ("C:\Program Files\Java\jdk-21*") do set "JAVA_HOME=%%~J"
 )
 if not defined JAVA_HOME (
     if exist "C:\Program Files\Android\Android Studio\jbr\bin\java.exe" (
@@ -61,14 +64,19 @@ if not defined JAVA_HOME (
 if defined JAVA_HOME (
     set "PATH=%JAVA_HOME%\bin;%PATH%"
     echo  Java: %JAVA_HOME%
+    java -version 2>&1 | findstr /i "version"
 ) else (
-    echo  ERROR: Java JDK 17 not found.
+    echo  ERROR: Java JDK 21 not found.
     echo.
-    echo  Install JDK 17:
-    echo    1. Go to https://adoptium.net/temurin/releases/?version=17
+    echo  Capacitor 8 needs JDK 21 ^(JDK 17 is too old — causes "invalid source release: 21"^).
+    echo.
+    echo  Install JDK 21:
+    echo    1. Go to https://adoptium.net/temurin/releases/?version=21
     echo    2. Download Windows x64 .msi and run it
     echo    3. CHECK "Set JAVA_HOME" and "Add to PATH" during install
     echo    4. Close this window, open a NEW cmd, run build-android.bat again
+    echo.
+    echo  Or use Android Studio's bundled JDK — open Android Studio once first.
     echo.
     pause
     exit /b 1
@@ -136,7 +144,7 @@ call gradlew.bat assembleDebug
 if errorlevel 1 (
     echo.
     echo  Gradle failed. You may need:
-    echo    - Java JDK 17  https://adoptium.net
+    echo    - Java JDK 21  https://adoptium.net/temurin/releases/?version=21
     echo    - Android Studio + SDK  https://developer.android.com/studio
     echo  Set ANDROID_HOME to your SDK path if needed.
     cd ..
