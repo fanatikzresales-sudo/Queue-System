@@ -46,6 +46,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Auto-fix old package.json copies that still call Python for icons
+node -e "try{const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));let c=0;if(j.scripts.build&&j.scripts.build.includes('generate:icons')){j.scripts.build='npm run sync:www && npm run build:js';c=1;}if(j.scripts['generate:icons']&&String(j.scripts['generate:icons']).includes('python')){j.scripts['generate:icons']='node scripts/generate-app-icons.js';c=1;}if(c){fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');console.log('  Auto-fixed package.json (removed Python from build)');}}catch(e){console.error('  WARN: could not patch package.json:',e.message);}"
+
 REM Capacitor 8 requires Java 21 — find a working JDK (ignore broken system JAVA_HOME)
 set "JAVA_HOME="
 for /d %%J in ("C:\Program Files\Eclipse Adoptium\jdk-21*") do (
