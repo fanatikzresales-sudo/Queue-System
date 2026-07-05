@@ -139,7 +139,9 @@ REM Use project-local Gradle home — ignores broken org.gradle.java.home in use
 set "GRADLE_USER_HOME=%MOBILE_DIR%\android\.gradle-local"
 if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
 
-call "%MOBILE_DIR%\write-gradle-java.bat"
+set "GRADLE_PROPS=%MOBILE_DIR%\android\gradle.properties"
+set "JAVA_FWD=%JAVA_HOME:\=/%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:GRADLE_PROPS; $j=$env:JAVA_FWD; $lines=@(); if (Test-Path $p) { $lines = Get-Content $p | Where-Object { $_ -notmatch '^org\.gradle\.java\.home=' } }; while ($lines.Count -gt 0 -and [string]::IsNullOrWhiteSpace($lines[-1])) { $lines = $lines[0..($lines.Count-2)] }; $lines += \"org.gradle.java.home=$j\"; $lines | Set-Content $p -Encoding UTF8; Write-Host \"Gradle Java: $j\""
 if errorlevel 1 (
     echo  ERROR: Could not configure Java for Gradle.
     goto :fail
