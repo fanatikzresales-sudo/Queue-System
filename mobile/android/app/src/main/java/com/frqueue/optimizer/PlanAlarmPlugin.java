@@ -112,4 +112,48 @@ public class PlanAlarmPlugin extends Plugin {
         NotificationHelper.show(getContext(), id, title, body, channel);
         call.resolve();
     }
+
+    @PluginMethod
+    public void startPlanMonitor(PluginCall call) {
+        NotificationHelper.ensureChannels(getContext());
+        JSArray alarms = call.getArray("alarms");
+        String planName = call.getString("planName", "Queue plan");
+        if (alarms == null) {
+            call.reject("Missing alarms array");
+            return;
+        }
+        try {
+            JSONArray stored = new JSONArray();
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < alarms.length(); i++) {
+                JSONObject a = alarms.getJSONObject(i);
+                long atMs = a.getLong("atMs");
+                if (atMs <= now + 500) continue;
+                JSONObject copy = new JSONObject(a.toString());
+                copy.put("fired", false);
+                stored.put(copy);
+            }
+            Intent intent = new Intent(getContext(), PlanMonitorService.class);
+            intent.putExtra("alerts", stored.toString());
+            intent.putExtra("planName", planName);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(intent);
+            } else {
+                getContext().startService(intent);
+            }
+            JSObject ret = new JSObject();
+            ret.put("monitoring", stored.length());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to start plan monitor", e);
+        }
+    }
+
+    @PluginMethod
+    public void stopPlanMonitor(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), PlanMonitorService.class));
+        getContext().getSharedPreferences("plan_monitor_state", Context.MODE_PRIVATE)
+            .edit().remove("alerts").remove("planName").apply();
+        call.resolve();
+    }
 }

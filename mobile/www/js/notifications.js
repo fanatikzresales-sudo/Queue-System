@@ -219,80 +219,95 @@
     };
   }
 
+  function coerceTsMs(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function normalizePlanTimes(plan) {
+    return {
+      ...plan,
+      start_ts_ms: coerceTsMs(plan.start_ts_ms),
+      drop_ts_ms: coerceTsMs(plan.drop_ts_ms),
+      queue_ts_ms: coerceTsMs(plan.queue_ts_ms),
+    };
+  }
+
   function buildPlanNotifications(planId, name, plan, now) {
+    const p = normalizePlanTimes(plan);
     const notifications = [];
 
     notifications.push(baseNotif(
       notifId(planId, 0),
       `${name} — Plan active`,
-      `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
+      `Start at ${p.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${p.drop_time_display}.`,
       CHANNEL_ALERTS,
       now + 1500,
       { planId, type: 'confirmed' }
     ));
 
-    const startReminderAt = plan.start_ts_ms - REMINDER_MS;
+    const startReminderAt = p.start_ts_ms - REMINDER_MS;
     if (startReminderAt > now + MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 1),
         `${name} — Start in ${REMINDER_MINUTES} minutes`,
-        `At ${plan.start_time_display}, set delay to ${plan.start_delay_label}.`,
+        `At ${p.start_time_display}, set delay to ${p.start_delay_label}.`,
         CHANNEL_ALERTS,
         startReminderAt,
         { planId, type: 'start_reminder' }
       ));
     }
 
-    if (plan.start_ts_ms > now + MIN_FUTURE_MS) {
+    if (p.start_ts_ms > now + MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 2),
         `${name} — Start your task`,
-        `Set delay to ${plan.start_delay_label} now (${plan.start_time_display}).`,
+        `Set delay to ${p.start_delay_label} now (${p.start_time_display}).`,
         CHANNEL_ALERTS,
-        plan.start_ts_ms,
+        p.start_ts_ms,
         { planId, type: 'start_now' }
       ));
     }
 
-    const dropReminderAt = plan.drop_ts_ms - REMINDER_MS;
+    const dropReminderAt = p.drop_ts_ms - REMINDER_MS;
     if (dropReminderAt > now + MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 3),
         `⚡ ${name} — Drop in ${REMINDER_MINUTES} minutes`,
-        `At ${plan.drop_time_display}, change delay to ${plan.final_delay_label}.`,
+        `At ${p.drop_time_display}, change delay to ${p.final_delay_label}.`,
         CHANNEL_URGENT,
         dropReminderAt,
         { planId, type: 'drop_reminder' }
       ));
-    } else if (plan.drop_ts_ms - now > MIN_FUTURE_MS) {
+    } else if (p.drop_ts_ms - now > MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 3),
         `⚡ ${name} — Drop in ${REMINDER_MINUTES} minutes`,
-        `At ${plan.drop_time_display}, change delay to ${plan.final_delay_label}.`,
+        `At ${p.drop_time_display}, change delay to ${p.final_delay_label}.`,
         CHANNEL_URGENT,
         now + 2000,
         { planId, type: 'drop_reminder' }
       ));
     }
 
-    if (plan.drop_ts_ms > now + MIN_FUTURE_MS) {
+    if (p.drop_ts_ms > now + MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 4),
         `⚡ ${name} — DROP NOW`,
-        `Change delay to ${plan.final_delay_label} — queue live at ${plan.queue_time_display}.`,
+        `Change delay to ${p.final_delay_label} — queue live at ${p.queue_time_display}.`,
         CHANNEL_URGENT,
-        plan.drop_ts_ms,
+        p.drop_ts_ms,
         { planId, type: 'drop_now' }
       ));
     }
 
-    if (plan.queue_ts_ms && plan.queue_ts_ms > now + MIN_FUTURE_MS) {
+    if (p.queue_ts_ms && p.queue_ts_ms > now + MIN_FUTURE_MS) {
       notifications.push(baseNotif(
         notifId(planId, 5),
         `${name} — Queue live`,
-        `Queue goes live now at ${plan.queue_time_display}.`,
+        `Queue goes live now at ${p.queue_time_display}.`,
         CHANNEL_ALERTS,
-        plan.queue_ts_ms,
+        p.queue_ts_ms,
         { planId, type: 'queue_live' }
       ));
     }
@@ -383,6 +398,19 @@
 
     try {
       const scheduleResult = await scheduleNotifications(notifications);
+      const alarmPayload = toAlarmPayload(notifications);
+
+      const pa = planAlarm();
+      let monitoring = 0;
+      if (pa && typeof pa.startPlanMonitor === 'function') {
+        try {
+          const mon = await pa.startPlanMonitor({ alarms: alarmPayload, planName: name });
+          monitoring = mon.monitoring || 0;
+        } catch (err) {
+          console.warn('startPlanMonitor failed:', err);
+        }
+      }
+
       await showNotificationNow(
         notifId(planId, 0),
         `${name} — Plan active`,
@@ -392,9 +420,10 @@
       return {
         ok: true,
         scheduled: notifications.length,
+        monitoring,
         method: scheduleResult.method,
         exactAlarm: await hasExactAlarmPermission(),
-        times: toAlarmPayload(notifications).map(a => ({
+        times: alarmPayload.map(a => ({
           title: a.title,
           at: new Date(a.atMs).toLocaleString(),
         })),
@@ -431,6 +460,11 @@
   async function cancelPlanNotifications(planId) {
     const ids = NOTIF_KINDS.map(k => notifId(planId, k));
     const pa = planAlarm();
+    if (pa && typeof pa.stopPlanMonitor === 'function') {
+      try {
+        await pa.stopPlanMonitor();
+      } catch (_) {}
+    }
     if (pa && typeof pa.cancelAlarms === 'function') {
       try {
         await pa.cancelAlarms({ ids });

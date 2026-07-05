@@ -151,9 +151,10 @@
               ? '\n\nTip: enable "Alarms & reminders" in app settings too.'
               : '';
             showNotifError(
-              `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n\n` +
+              `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n` +
+              `Background monitor: ${result.monitoring || 0} alerts (keeps LDPlayer alerts alive).\n\n` +
               (times || 'Alerts set for your plan times.') +
-              '\n\nKeep LDPlayer running in the background. Tap Test alert first to verify.${exact}'
+              '\n\nLeave LDPlayer running — you should see a small "alerts active" notification at the top.' + exact
             );
           } else if (result.reason === 'permission_denied') {
             showNotifError(
