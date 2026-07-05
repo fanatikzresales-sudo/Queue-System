@@ -4,8 +4,22 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '../..');
-const WWW = path.resolve(__dirname, '../www');
+function findRepoRoot() {
+  let dir = path.resolve(__dirname, '..');
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(dir, 'static', 'style.css'))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  console.error('ERROR: Cannot find repo root (expected static/style.css).');
+  console.error('Run build from C:\\Queue-System\\mobile — not mobile\\mobile.');
+  process.exit(1);
+}
+
+const ROOT = findRepoRoot();
+const MOBILE = path.join(ROOT, 'mobile');
+const WWW = path.join(MOBILE, 'www');
 const CSS = path.join(WWW, 'css');
 const JS = path.join(WWW, 'js');
 
