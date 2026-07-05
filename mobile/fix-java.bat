@@ -1,9 +1,8 @@
 @echo off
-REM One-shot fix: run this from mobile folder if build keeps using jdk-17
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo Fixing Java + Gradle for Android build...
+echo Fixing Java + Gradle...
 echo.
 
 set "JAVA_HOME="
@@ -18,31 +17,22 @@ if not defined JAVA_HOME (
 )
 
 set "PATH=%JAVA_HOME%\bin;%PATH%"
-echo Using Java: %JAVA_HOME%
+echo Java: %JAVA_HOME%
 java -version
 echo.
 
 set "GRADLE_USER_HOME=%CD%\android\.gradle-local"
 if not exist "%GRADLE_USER_HOME%" mkdir "%GRADLE_USER_HOME%"
 
-call "%~dp0write-gradle-java.bat"
+set "GRADLE_PROPS=%CD%\android\gradle.properties"
+set "JAVA_FWD=%JAVA_HOME:\=/%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:GRADLE_PROPS; $j=$env:JAVA_FWD; $lines=@(); if (Test-Path $p) { $lines = Get-Content $p | Where-Object { $_ -notmatch '^org\.gradle\.java\.home=' } }; $lines += \"org.gradle.java.home=$j\"; $lines | Set-Content $p -Encoding UTF8; Write-Host \"Wrote org.gradle.java.home=$j\""
 if errorlevel 1 (
-    echo.
-    echo ERROR: Could not write Gradle Java config.
+    echo ERROR: PowerShell step failed.
     pause
     exit /b 1
 )
 
-if exist "%USERPROFILE%\.gradle\gradle.properties" (
-    echo.
-    findstr /i "jdk-17" "%USERPROFILE%\.gradle\gradle.properties" >nul 2>&1
-    if not errorlevel 1 (
-        echo WARNING: Your user Gradle file still has jdk-17:
-        echo   %USERPROFILE%\.gradle\gradle.properties
-        echo Delete the org.gradle.java.home line that mentions jdk-17.
-    )
-)
-
 echo.
-echo SUCCESS — Java 21 is configured. Now run build-android.bat
+echo SUCCESS. Now double-click build-android.bat
 pause
