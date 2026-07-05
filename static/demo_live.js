@@ -19,6 +19,7 @@ let tickTimer = null;
 let clockOffset = 0;
 let firedRefreshIdx = new Set();
 let firedDropIdx = new Set();
+let deferredLagAnnounced = false;
 let refreshTotal = 0;
 
 function nowTs() {
@@ -57,9 +58,28 @@ function addEvent(type, message, ts) {
   if (placeholder) placeholder.remove();
 }
 
+function isDeferredMode() {
+  return demo?.timing_mode === "deferred";
+}
+
+function getEffectiveSwitchTs(step) {
+  return step.effective_switch_ts ?? step.at_ts;
+}
+
 function getCurrentStep(atTs) {
   if (!demo) return null;
-  let current = demo.drop_schedule[0];
+
+  const startStep = demo.drop_schedule[0];
+  const dropStep = demo.drop_schedule[1];
+  if (!dropStep) return startStep;
+
+  if (isDeferredMode()) {
+    const effectiveTs = getEffectiveSwitchTs(dropStep);
+    if (atTs >= effectiveTs) return dropStep;
+    return startStep;
+  }
+
+  let current = startStep;
   for (const step of demo.drop_schedule) {
     if (step.at_ts <= atTs) current = step;
     else break;
@@ -83,15 +103,44 @@ function tick() {
       const row = dropTableBody.rows[idx];
       if (row) {
         row.classList.add("drop-done");
-        row.cells[2].textContent = idx === 0 ? "Started" : "Dropped";
+        if (idx === 0) {
+          row.cells[2].textContent = "Started";
+        } else if (isDeferredMode()) {
+          row.cells[2].textContent = "Drop sent";
+        } else {
+          row.cells[2].textContent = "Dropped";
+        }
       }
       if (idx === 0) {
         addEvent("drop", `Bot started with delay <strong>${formatMs(step.delay_ms)}</strong>`, step.at_ts);
+      } else if (isDeferredMode()) {
+        addEvent(
+          "drop",
+          `Delay change sent to <strong>${formatMs(step.delay_ms)}</strong> — finishing last start-delay refresh…`,
+          step.at_ts
+        );
       } else {
         addEvent("drop", `Delay dropped to <strong>${formatMs(step.delay_ms)}</strong>`, step.at_ts);
       }
     }
   });
+
+  if (isDeferredMode()) {
+    const dropStep = demo.drop_schedule[1];
+    if (dropStep && firedDropIdx.has(1) && !deferredLagAnnounced) {
+      const effectiveTs = getEffectiveSwitchTs(dropStep);
+      if (ts >= effectiveTs) {
+        deferredLagAnnounced = true;
+        const row = dropTableBody.rows[1];
+        if (row) row.cells[2].textContent = "Final delay active";
+        addEvent(
+          "drop",
+          `Final delay now active — <strong>${formatMs(dropStep.delay_ms)}</strong>`,
+          effectiveTs
+        );
+      }
+    }
+  }
 
   demo.all_refreshes.forEach((refresh, idx) => {
     if (!firedRefreshIdx.has(idx) && ts >= refresh.ts) {
@@ -131,7 +180,20 @@ function tick() {
   if (remaining > 0) {
     countdownEl.textContent = formatCountdown(remaining);
     countdownEl.className = remaining <= 30000 ? "countdown-value urgent" : "countdown-value";
-    statusLineEl.textContent = `Simulation running — ${Math.ceil(remaining / 1000)}s until queue goes live`;
+
+    const dropStep = demo.drop_schedule[1];
+    if (
+      isDeferredMode() &&
+      dropStep &&
+      firedDropIdx.has(1) &&
+      !deferredLagAnnounced &&
+      ts >= dropStep.at_ts &&
+      ts < getEffectiveSwitchTs(dropStep)
+    ) {
+      statusLineEl.textContent = "Finishing last start-delay refresh before final delay kicks in…";
+    } else {
+      statusLineEl.textContent = `Simulation running — ${Math.ceil(remaining / 1000)}s until queue goes live`;
+    }
   }
 
   const currentStep = getCurrentStep(ts);
@@ -180,6 +242,7 @@ function applyUrlParams() {
   const tz = urlParams.get("timezone");
   const finalDelay = urlParams.get("final_delay");
   const label = urlParams.get("label");
+  const timingMode = urlParams.get("timing_mode");
 
   if (tz && timezoneEl.querySelector(`option[value="${tz}"]`)) {
     timezoneEl.value = tz;
@@ -193,22 +256,25 @@ function applyUrlParams() {
           ? `${(+finalDelay / 1000).toFixed(1)} sec (${(+finalDelay).toLocaleString()} ms)`
           : `${finalDelay} ms`)
         : "";
+      const modeLabel = timingMode === "deferred" ? "Deferred Switch" : "Instant Switch";
       ctxEl.innerHTML =
         `Testing: <strong>${label}</strong>` +
-        (finalLabel ? ` &nbsp;·&nbsp; Final drop delay: <strong>${finalLabel}</strong>` : "");
+        (finalLabel ? ` &nbsp;·&nbsp; Final drop delay: <strong>${finalLabel}</strong>` : "") +
+        (timingMode ? ` &nbsp;·&nbsp; ${modeLabel}` : "");
       ctxEl.hidden = false;
     } else {
       ctxEl.hidden = true;
     }
   }
 
-  return { tz, finalDelay };
+  return { tz, finalDelay, timingMode };
 }
 
 async function startDemo() {
   if (tickTimer) clearInterval(tickTimer);
   firedRefreshIdx = new Set();
   firedDropIdx = new Set();
+  deferredLagAnnounced = false;
   refreshTotal = 0;
   refreshCountEl.textContent = "0";
   eventFeedEl.innerHTML = '<div class="event placeholder">Loading demo schedule…</div>';
@@ -221,9 +287,10 @@ async function startDemo() {
   verificationEl.textContent = "Waiting…";
   verificationEl.className = "state-value pending";
 
-  const { delay } = applyUrlParams();
+  const { delay, timingMode } = applyUrlParams();
   const params = new URLSearchParams({ timezone: timezoneEl.value });
   if (delay) params.set("delay", delay);
+  if (timingMode) params.set("timing_mode", timingMode);
 
   try {
     const res = await fetch(`/api/demo-live?${params.toString()}`);
@@ -237,7 +304,8 @@ async function startDemo() {
 
     addEvent(
       "drop",
-      `Live demo started — queue goes live in <strong>${data.demo_duration_minutes} minutes</strong>`,
+      `Live demo started — queue goes live in <strong>${data.demo_duration_minutes} minutes</strong>` +
+        (data.timing_mode === "deferred" ? " (Deferred Switch)" : ""),
       nowTs()
     );
     addEvent(

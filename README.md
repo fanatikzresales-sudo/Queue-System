@@ -35,6 +35,19 @@ Your automation refreshes a Walmart SKU page every N milliseconds. The optimizer
 
 ---
 
+## Timing modes (Instant vs Deferred Switch)
+
+Some automation bots apply a new delay **immediately** when you change it. Others finish one more full start-delay sleep cycle first. The optimizer supports both:
+
+| Mode | When to use | What it does |
+|------|-------------|--------------|
+| **Instant Switch** (default) | Bot applies new delay right away | Drop at the refresh boundary — same as before |
+| **Deferred Switch** | Bot finishes its current slow refresh first | Drop **one start-delay cycle earlier** so the final delay still kicks in on time |
+
+Same start time, same delays, same queue-live hit — only the drop reminder moves earlier in Deferred Switch mode. Use the toggle at the top of the preset cards to switch modes.
+
+---
+
 ## Preset Plans (main page)
 
 The app pre-computes the best plan for each common final delay:

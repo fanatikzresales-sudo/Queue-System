@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
@@ -88,6 +89,35 @@ ALL_START_WINDOWS: list[tuple[int, str]] = [
 PRESET_START_DELAY_PREFERENCES = [120_000, 90_000, 60_000, 45_000, 30_000, 20_000, 15_000, 10_000, 5_000]
 
 
+class TimingMode(str, Enum):
+    """How the automation bot applies a delay change after the user drops."""
+
+    INSTANT = "instant"    # New delay applies immediately at the drop boundary
+    DEFERRED = "deferred"  # Bot finishes one more start-delay cycle first
+
+
+def parse_timing_mode(value: str | None) -> TimingMode:
+    """Parse API/UI timing mode; defaults to instant."""
+    if not value:
+        return TimingMode.INSTANT
+    normalized = value.strip().lower()
+    for mode in TimingMode:
+        if mode.value == normalized:
+            return mode
+    raise ValueError(f"Unknown timing_mode '{value}'. Choose: instant, deferred")
+
+
+def drop_command_at(
+    effective_switch: datetime,
+    initial_delay_ms: int,
+    mode: TimingMode,
+) -> datetime:
+    """When the user should change delay (may be earlier than effective switch)."""
+    if mode == TimingMode.INSTANT:
+        return effective_switch
+    return effective_switch - timedelta(milliseconds=initial_delay_ms)
+
+
 @dataclass(frozen=True)
 class PresetPlan:
     """A fully resolved 2-step plan organized by target final delay."""
@@ -111,8 +141,11 @@ class PresetPlan:
     start_m: int
     start_s: int
     start_ts_ms: int   # Unix timestamp ms for task start
-    drop_ts_ms: int    # Unix timestamp ms for delay drop
+    drop_ts_ms: int    # Unix timestamp ms for user drop command
     queue_ts_ms: int   # Unix timestamp ms for queue go-live
+    timing_mode: str = TimingMode.INSTANT.value
+    effective_switch_ts_ms: int = 0  # When final delay actually applies
+    effective_switch_time_display: str = ""
 
 
 @dataclass(frozen=True)
@@ -144,6 +177,7 @@ class Schedule:
     steps: list[DelayStep]
     final_refresh_times: list[datetime]
     timezone_key: str = "CDT"
+    timing_mode: TimingMode = TimingMode.INSTANT
 
     @property
     def hits_target_exactly(self) -> bool:
@@ -412,6 +446,7 @@ def build_schedule(
     tz_key: str = "CDT",
     initial_delay_ms: int | None = None,
     switch_minutes_before: float | None = None,
+    timing_mode: TimingMode | str = TimingMode.INSTANT,
     **_kwargs,
 ) -> Schedule:
     """Build a simple two-delay schedule: start delay + one drop before queue live."""
@@ -422,6 +457,9 @@ def build_schedule(
     if (target - start).total_seconds() <= 0:
         raise ValueError("Start time must be before queue go-live.")
 
+    if isinstance(timing_mode, str):
+        timing_mode = parse_timing_mode(timing_mode)
+
     delay = initial_delay_ms if initial_delay_ms is not None else 60_000
     steps = build_two_step_schedule(
         target=target,
@@ -431,6 +469,14 @@ def build_schedule(
         min_delay_ms=min_delay_ms,
     )
 
+    if timing_mode == TimingMode.DEFERRED:
+        command_at = drop_command_at(steps[1].at, delay, timing_mode)
+        if command_at < start:
+            raise ValueError(
+                "Deferred switch would require dropping before task start. "
+                "Try an earlier start window or use Instant Switch mode."
+            )
+
     final_refresh_times = _simulate_refreshes(steps, target)
     return Schedule(
         target=target,
@@ -438,6 +484,7 @@ def build_schedule(
         steps=steps,
         final_refresh_times=final_refresh_times,
         timezone_key=tz_key.upper(),
+        timing_mode=timing_mode,
     )
 
 
@@ -478,6 +525,7 @@ def preset_schedules(
     *,
     target: datetime,
     tz_key: str = "CDT",
+    timing_mode: TimingMode | str = TimingMode.INSTANT,
 ) -> list[PresetPlan]:
     """
     Compute the best 2-step plan for each target final delay.
@@ -486,6 +534,9 @@ def preset_schedules(
       1. Latest possible switch (drop as late as possible)
       2. Largest safe starting delay (most proxy-friendly)
     """
+    if isinstance(timing_mode, str):
+        timing_mode = parse_timing_mode(timing_mode)
+
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     plans: list[PresetPlan] = []
@@ -532,6 +583,12 @@ def preset_schedules(
             continue
 
         s1, s2 = best_steps[0], best_steps[1]
+        effective_switch = s2.at
+        command_at = drop_command_at(effective_switch, s1.delay_ms, timing_mode)
+        if command_at < s1.at:
+            continue
+
+        drop_minutes_before = (target - command_at).total_seconds() / 60
         window_label = window_labels.get(best_window, f"{best_window} min early")
         plans.append(
             PresetPlan(
@@ -540,23 +597,26 @@ def preset_schedules(
                 minutes_early=best_window,
                 start_window_label=window_label,
                 start_delay_ms=s1.delay_ms,
-                drop_minutes_before=s2.minutes_before,
+                drop_minutes_before=drop_minutes_before,
                 final_delay_ms=s2.delay_ms,
                 verified=True,
                 start_time_display=_fmt_clock(s1.at),
-                drop_time_display=_fmt_clock(s2.at),
+                drop_time_display=_fmt_clock(command_at),
                 queue_time_display=_fmt_clock(target),
                 start_delay_label=format_duration_ms(s1.delay_ms),
                 final_delay_label=format_duration_ms(s2.delay_ms),
-                drop_minutes_label=format_minutes_before(s2.minutes_before),
+                drop_minutes_label=format_minutes_before(drop_minutes_before),
                 refreshes_phase1=s1.refreshes_until_next or 0,
                 refreshes_phase2=s2.refreshes_until_next or 0,
                 start_h=s1.at.astimezone(tz).hour,
                 start_m=s1.at.astimezone(tz).minute,
                 start_s=s1.at.astimezone(tz).second,
                 start_ts_ms=int(s1.at.timestamp() * 1000),
-                drop_ts_ms=int(s2.at.timestamp() * 1000),
+                drop_ts_ms=int(command_at.timestamp() * 1000),
                 queue_ts_ms=int(target.timestamp() * 1000),
+                timing_mode=timing_mode.value,
+                effective_switch_ts_ms=int(effective_switch.timestamp() * 1000),
+                effective_switch_time_display=_fmt_clock(effective_switch),
             )
         )
     return plans
@@ -619,6 +679,51 @@ def _find_two_step_with_final_delay(
     return None
 
 
+def _drop_step_dict(
+    *,
+    step: DelayStep,
+    schedule: Schedule,
+    fmt: callable,
+    is_start: bool,
+) -> dict:
+    if is_start:
+        return {
+            "is_start": True,
+            "is_final_drop": False,
+            "at": fmt(step.at),
+            "at_ts_ms": int(step.at.timestamp() * 1000),
+            "minutes_before": format_minutes_before(step.minutes_before),
+            "delay_ms": step.delay_ms,
+            "delay_label": format_duration_ms(step.delay_ms),
+            "refreshes_until_next": step.refreshes_until_next,
+            "aligned": step.aligned,
+        }
+
+    initial_delay_ms = schedule.steps[0].delay_ms
+    effective_switch = step.at
+    command_at = drop_command_at(effective_switch, initial_delay_ms, schedule.timing_mode)
+    command_minutes_before = (schedule.target - command_at).total_seconds() / 60
+    entry = {
+        "is_start": False,
+        "is_final_drop": True,
+        "at": fmt(command_at),
+        "at_ts_ms": int(command_at.timestamp() * 1000),
+        "minutes_before": format_minutes_before(command_minutes_before),
+        "delay_ms": step.delay_ms,
+        "delay_label": format_duration_ms(step.delay_ms),
+        "refreshes_until_next": step.refreshes_until_next,
+        "aligned": step.aligned,
+        "effective_switch_at": fmt(effective_switch),
+        "effective_switch_ts_ms": int(effective_switch.timestamp() * 1000),
+    }
+    if schedule.timing_mode == TimingMode.DEFERRED:
+        entry["deferred_note"] = (
+            f"Bot finishes one more {format_duration_ms(initial_delay_ms)} refresh, "
+            f"then final delay active at {fmt(effective_switch)}"
+        )
+    return entry
+
+
 def schedule_to_dict(schedule: Schedule) -> dict:
     tz = get_timezone(schedule.timezone_key)
 
@@ -635,6 +740,7 @@ def schedule_to_dict(schedule: Schedule) -> dict:
 
     return {
         "timezone": schedule.timezone_key,
+        "timing_mode": schedule.timing_mode.value,
         "queue_live": fmt_full(schedule.target),
         "start_time": fmt_full(schedule.start),
         "hits_target_exactly": schedule.hits_target_exactly,
@@ -655,17 +761,12 @@ def schedule_to_dict(schedule: Schedule) -> dict:
             )
         ],
         "drop_schedule": [
-            {
-                "is_start": i == 0,
-                "is_final_drop": i == 1,
-                "at": fmt(step.at),
-                "at_ts_ms": int(step.at.timestamp() * 1000),
-                "minutes_before": format_minutes_before(step.minutes_before),
-                "delay_ms": step.delay_ms,
-                "delay_label": format_duration_ms(step.delay_ms),
-                "refreshes_until_next": step.refreshes_until_next,
-                "aligned": step.aligned,
-            }
+            _drop_step_dict(
+                step=step,
+                schedule=schedule,
+                fmt=fmt,
+                is_start=i == 0,
+            )
             for i, step in enumerate(schedule.steps)
         ],
         "final_refreshes": [
@@ -689,12 +790,14 @@ def schedule_to_live_demo(schedule: Schedule) -> dict:
     base["target_ts"] = ts_ms(schedule.target)
     base["start_ts"] = ts_ms(schedule.start)
     base["server_now_ts"] = ts_ms(datetime.now(tz))
+    base["timing_mode"] = schedule.timing_mode.value
     base["drop_schedule"] = [
         {
             **step,
-            "at_ts": ts_ms(schedule.steps[i].at),
+            "at_ts": step["at_ts_ms"],
+            "effective_switch_ts": step.get("effective_switch_ts_ms", step["at_ts_ms"]),
         }
-        for i, step in enumerate(base["drop_schedule"])
+        for step in base["drop_schedule"]
     ]
     base["all_refreshes"] = [
         {
