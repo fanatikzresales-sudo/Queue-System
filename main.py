@@ -86,7 +86,6 @@ class Api:
         except Exception:
             pass
 
-        # Always try to grab attention by bringing the window to the front
         try:
             if self._window is not None:
                 self._window.restore()
@@ -102,13 +101,19 @@ class Api:
 
     def update_status(self) -> dict:
         """Return current update state for the UI banner."""
+        updater._sync_staged_flag()
         return dict(updater.update_state)
 
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    # Kick off an update check + background download of the new build
+    updater.register_exit_handler()
+
+    # Finish a staged update from a previous session before starting the UI.
+    if updater.apply_pending_on_startup():
+        sys.exit(0)
+
     try:
         updater.check_and_stage(background=True)
     except Exception:
@@ -128,11 +133,13 @@ def main() -> None:
     if not _wait_for_server(port):
         import webbrowser
         webbrowser.open(url)
-        while True:
-            time.sleep(3600)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            pass
         return
 
-    # Try a native desktop window
     try:
         import webview
 
@@ -149,20 +156,16 @@ def main() -> None:
         )
         api.set_window(window)
 
-        # webview.start() blocks until the window is closed
         webview.start(debug=False)
-
-        # Window closed → apply any downloaded update, then exit
-        try:
-            updater.apply_on_exit()
-        except Exception:
-            pass
 
     except Exception:
         import webbrowser
         webbrowser.open(url)
-        while True:
-            time.sleep(3600)
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

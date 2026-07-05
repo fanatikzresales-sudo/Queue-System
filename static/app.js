@@ -794,10 +794,9 @@ function showUpdateBanner({ version, downloadUrl, canAutoApply }) {
   const textEl = banner.querySelector(".ub-text");
 
   if (canAutoApply) {
-    // Desktop app: new build already downloaded — just restart
     textEl.innerHTML =
-      `🔄 Update <strong>v${version}</strong> ready — <strong>close and reopen</strong> to update`;
-    link.textContent = "Close App Now";
+      `🔄 Update <strong>v${version}</strong> ready — close the app and it will reopen updated`;
+    link.textContent = "Close & Update Now";
     link.href = "#";
     link.onclick = (e) => {
       e.preventDefault();
