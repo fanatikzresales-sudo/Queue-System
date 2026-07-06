@@ -94,7 +94,11 @@
     if (enableBtn) {
       enableBtn.addEventListener('click', async () => {
         if (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()) {
-          await global.MobileNotifications.requestPermissionDialog();
+          const granted = await global.MobileNotifications.requestPermissionDialog();
+          if (granted) {
+            setTimeout(refreshNotifBanner, 500);
+            return;
+          }
         }
         const result = await global.MobileNotifications.openNotificationSettings();
         if (!result.ok) {
@@ -185,8 +189,11 @@
             );
           } else if (result.reason === 'permission_denied') {
             showNotifError(
-              'Notifications are blocked.\n\n' +
-              'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
+              global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
+                ? 'Notifications are blocked.\n\n' +
+                  'Settings → FR Queue Optimizer → Notifications → Allow Notifications, Banners, and Sounds'
+                : 'Notifications are blocked.\n\n' +
+                  'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
             );
           } else {
             showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));

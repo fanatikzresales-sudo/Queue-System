@@ -877,6 +877,7 @@
         time: fmt(t),
         is_queue_live: t.toMillis() === schedule.target.toMillis(),
       })),
+      queue_ts_ms: _tsMs(schedule.target),
     };
   }
 

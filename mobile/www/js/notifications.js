@@ -241,7 +241,11 @@
   }
 
   function scheduleAt(whenMs) {
-    return { at: new Date(whenMs), allowWhileIdle: true };
+    const at = new Date(Math.max(whenMs, Date.now() + 1000));
+    if (isIOS()) {
+      return { at };
+    }
+    return { at, allowWhileIdle: true };
   }
 
   /** iOS ignores Android channels; sound:'default' breaks iOS (looks for missing file). */
@@ -397,6 +401,30 @@
     if (!ln()) throw new Error('No notification backend available');
 
     const payload = forPlatformList(notifications);
+    const now = Date.now();
+
+    if (isIOS()) {
+      let scheduled = 0;
+      const errors = [];
+      for (const notif of payload) {
+        const atMs = notif.schedule?.at instanceof Date
+          ? notif.schedule.at.getTime()
+          : new Date(notif.schedule.at).getTime();
+        if (!Number.isFinite(atMs) || atMs <= now + 500) continue;
+        try {
+          await ln().schedule({ notifications: [notif] });
+          scheduled++;
+        } catch (err) {
+          errors.push(err.message || String(err));
+          console.warn('iOS schedule failed for', notif.id, err);
+        }
+      }
+      if (scheduled === 0) {
+        const msg = errors[0] || 'No future alerts could be scheduled (times may be in the past)';
+        throw new Error(msg);
+      }
+      return { method: 'capacitor_ios', count: scheduled, errors };
+    }
 
     try {
       await ln().schedule({ notifications: payload });
@@ -490,6 +518,16 @@
     }
   }
 
+  async function getPendingCount() {
+    if (!ln() || typeof ln().getPending !== 'function') return null;
+    try {
+      const pending = await ln().getPending();
+      return (pending.notifications || []).length;
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function sendTestNotification() {
     if (!isNative() || !ln()) return { ok: false, reason: 'not_native' };
 
@@ -499,18 +537,28 @@
     await ensureExactAlarmPermission();
 
     try {
+      await showNotificationNow(
+        999000,
+        'FR Queue Optimizer — Test',
+        'Notifications are working! Another alert follows in 5 seconds.',
+        CHANNEL_URGENT
+      );
       await scheduleNotifications([{
         id: 999001,
         title: 'FR Queue Optimizer — Test alert',
-        body: 'If you see this, notifications are working!',
+        body: 'If you see this, scheduled notifications are working!',
         channelId: CHANNEL_URGENT,
         schedule: scheduleAt(Date.now() + 5000),
         sound: 'default',
       }]);
+      const pending = await getPendingCount();
       const msg = isIOS()
-        ? 'Test alert in 5 seconds.\n\nOn iPhone: swipe down from the top to see Notification Center, or press Home to background the app.'
+        ? 'Test sent now + another in 5 seconds.\n\n' +
+          'On iPhone: press Home to background the app, or swipe down from the top.\n' +
+          'Check Settings → Notifications → FR Queue Optimizer → Allow Notifications, Banners, and Sounds.' +
+          (pending != null ? `\n\nPending alerts on device: ${pending}` : '')
         : 'Test alert in 5 seconds — minimize the app or switch apps and wait.';
-      return { ok: true, message: msg };
+      return { ok: true, message: msg, pending };
     } catch (err) {
       return { ok: false, reason: err.message };
     }

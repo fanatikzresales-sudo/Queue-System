@@ -11,37 +11,50 @@ window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettin
 
 async function initNativeNotifications() {
   if (!Capacitor.isNativePlatform()) return;
-  if (Capacitor.getPlatform() !== 'android') return;
-  try {
-    const channels = [
-      {
-        id: 'fr_queue_alerts',
-        name: 'Queue Plan Reminders',
-        importance: 5,
-        visibility: 1,
-        sound: 'default',
-        vibration: true,
-      },
-      {
-        id: 'fr_queue_urgent',
-        name: 'Drop Now Alerts',
-        importance: 5,
-        visibility: 1,
-        sound: 'default',
-        vibration: true,
-      },
-    ];
-    for (const ch of channels) {
-      await LocalNotifications.createChannel(ch);
-    }
-    if (typeof LocalNotifications.checkExactNotificationSetting === 'function' && Capacitor.getPlatform() === 'android') {
-      const exact = await LocalNotifications.checkExactNotificationSetting();
-      if (exact.exact_alarm !== 'granted') {
-        console.warn('Exact alarm permission not granted — scheduled alerts may be late');
+  if (Capacitor.getPlatform() === 'android') {
+    try {
+      const channels = [
+        {
+          id: 'fr_queue_alerts',
+          name: 'Queue Plan Reminders',
+          importance: 5,
+          visibility: 1,
+          sound: 'default',
+          vibration: true,
+        },
+        {
+          id: 'fr_queue_urgent',
+          name: 'Drop Now Alerts',
+          importance: 5,
+          visibility: 1,
+          sound: 'default',
+          vibration: true,
+        },
+      ];
+      for (const ch of channels) {
+        await LocalNotifications.createChannel(ch);
       }
+      if (typeof LocalNotifications.checkExactNotificationSetting === 'function') {
+        const exact = await LocalNotifications.checkExactNotificationSetting();
+        if (exact.exact_alarm !== 'granted') {
+          console.warn('Exact alarm permission not granted — scheduled alerts may be late');
+        }
+      }
+    } catch (e) {
+      console.warn('Notification channel init:', e);
     }
-  } catch (e) {
-    console.warn('Notification channel init:', e);
+    return;
+  }
+
+  if (Capacitor.getPlatform() === 'ios') {
+    try {
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display === 'prompt') {
+        await LocalNotifications.requestPermissions();
+      }
+    } catch (e) {
+      console.warn('iOS notification permission init:', e);
+    }
   }
 }
 

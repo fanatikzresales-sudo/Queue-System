@@ -32,11 +32,17 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
             let enabled: Bool
             switch settings.authorizationStatus {
             case .authorized, .provisional, .ephemeral:
-                enabled = true
+                enabled = settings.alertSetting != .disabled ||
+                    settings.notificationCenterSetting != .disabled ||
+                    settings.lockScreenSetting != .disabled
             default:
                 enabled = false
             }
-            call.resolve(["enabled": enabled])
+            call.resolve([
+                "enabled": enabled,
+                "authorization": String(describing: settings.authorizationStatus),
+                "alert": String(describing: settings.alertSetting),
+            ])
         }
     }
 

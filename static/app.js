@@ -653,7 +653,7 @@ function renderResults(data) {
           queue_time_display: data.queue_live,
           start_ts_ms: s1.at_ts_ms,
           drop_ts_ms: s2.at_ts_ms,
-          queue_ts_ms: data.drop_schedule.at(-1)?.at_ts_ms || 0,
+          queue_ts_ms: data.queue_ts_ms || data.drop_schedule.at(-1)?.at_ts_ms || 0,
           timing_mode: data.timing_mode || "instant",
           effective_switch_time_display: s2.effective_switch_at || s2.at,
         };
