@@ -26,6 +26,13 @@ const JS = path.join(WWW, 'js');
 const STARTER_DELAYS = [120000, 90000, 60000, 45000, 30000, 20000, 15000, 10000, 5000];
 
 function copy(src, dest) {
+  if (!fs.existsSync(src)) {
+    console.error(`ERROR: Missing file: ${src}`);
+    if (src.includes('node_modules/luxon')) {
+      console.error('Run: npm install   (inside the mobile folder first)');
+    }
+    process.exit(1);
+  }
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.copyFileSync(src, dest);
 }
