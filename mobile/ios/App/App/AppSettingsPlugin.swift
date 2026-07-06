@@ -15,13 +15,34 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func openNotificationSettings(_ call: CAPPluginCall) {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
-            call.reject("Could not open settings")
+        let settingsURL: String
+        if #available(iOS 16.0, *) {
+            settingsURL = UIApplication.openNotificationSettingsURLString
+        } else {
+            settingsURL = UIApplication.openSettingsURLString
+        }
+
+        guard let url = URL(string: settingsURL) else {
+            call.reject("Could not open notification settings")
             return
         }
+
         DispatchQueue.main.async {
-            UIApplication.shared.open(url, options: [:]) { _ in
-                call.resolve(["opened": true])
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened {
+                    call.resolve(["opened": true, "direct": settingsURL == UIApplication.openNotificationSettingsURLString])
+                } else if #available(iOS 16.0, *), settingsURL == UIApplication.openNotificationSettingsURLString {
+                    // Fallback if deep link fails (e.g. notifications never requested yet)
+                    if let fallback = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(fallback, options: [:]) { _ in
+                            call.resolve(["opened": true, "direct": false, "fallback": true])
+                        }
+                    } else {
+                        call.reject("Could not open settings")
+                    }
+                } else {
+                    call.reject("Could not open notification settings")
+                }
             }
         }
     }
@@ -31,7 +52,6 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func openExactAlarmSettings(_ call: CAPPluginCall) {
-        // iOS has no separate exact-alarm setting — notifications cover scheduled alerts.
         openNotificationSettings(call)
     }
 

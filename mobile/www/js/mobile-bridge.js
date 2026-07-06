@@ -106,6 +106,8 @@
           );
         } else if (result.fallback === 'app_details') {
           alert('Opened app settings. Tap Notifications and turn them ON.');
+        } else if (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()) {
+          alert('Opened Notification settings for FR Queue Optimizer. Turn Allow Notifications ON.');
         }
         setTimeout(refreshNotifBanner, 1500);
       });
