@@ -32,6 +32,21 @@
       global.CapNative.Capacitor.isNativePlatform();
   }
 
+  function platform() {
+    if (global.CapNative && global.CapNative.Capacitor && global.CapNative.Capacitor.getPlatform) {
+      return global.CapNative.Capacitor.getPlatform();
+    }
+    return 'web';
+  }
+
+  function isAndroid() {
+    return platform() === 'android';
+  }
+
+  function isIOS() {
+    return platform() === 'ios';
+  }
+
   function notifId(planId, kind) {
     const base = Math.abs(
       String(planId).split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
@@ -180,11 +195,15 @@
     if (await areNotificationsEnabled()) return true;
 
     const open = confirm(
-      'Notifications are OFF for this app.\n\n' +
-      'LDPlayer and older Android versions do NOT show an "Allow" popup — ' +
-      'you must turn them on manually.\n\n' +
-      'Tap OK to open Notification Settings, enable "Allow notifications", ' +
-      'then come back and tap "Test alert".'
+      isIOS()
+        ? 'Notifications are OFF for FR Queue Optimizer.\n\n' +
+          'Tap OK to open iOS Settings → Notifications → turn Allow Notifications ON.\n\n' +
+          'Then come back and tap Test alert.'
+        : 'Notifications are OFF for this app.\n\n' +
+          'LDPlayer and older Android versions do NOT show an "Allow" popup — ' +
+          'you must turn them on manually.\n\n' +
+          'Tap OK to open Notification Settings, enable "Allow notifications", ' +
+          'then come back and tap "Test alert".'
     );
     if (open) {
       const opened = await openNotificationSettings();
@@ -400,9 +419,9 @@
       const scheduleResult = await scheduleNotifications(notifications);
       const alarmPayload = toAlarmPayload(notifications);
 
-      const pa = planAlarm();
       let monitoring = 0;
-      if (pa && typeof pa.startPlanMonitor === 'function') {
+      const pa = planAlarm();
+      if (isAndroid() && pa && typeof pa.startPlanMonitor === 'function') {
         try {
           const mon = await pa.startPlanMonitor({ alarms: alarmPayload, planName: name });
           monitoring = mon.monitoring || 0;
@@ -460,7 +479,7 @@
   async function cancelPlanNotifications(planId) {
     const ids = NOTIF_KINDS.map(k => notifId(planId, k));
     const pa = planAlarm();
-    if (pa && typeof pa.stopPlanMonitor === 'function') {
+    if (isAndroid() && pa && typeof pa.stopPlanMonitor === 'function') {
       try {
         await pa.stopPlanMonitor();
       } catch (_) {}
@@ -517,5 +536,8 @@
     notifyNow,
     buildJsTimerFallback,
     isNative,
+    isAndroid,
+    isIOS,
+    platform,
   };
 })(typeof window !== 'undefined' ? window : global);

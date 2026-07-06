@@ -68,9 +68,14 @@
     const enabled = await global.MobileNotifications.areNotificationsEnabled();
     banner.hidden = false;
     if (statusEl) {
+      const ios = global.MobileNotifications.isIOS && global.MobileNotifications.isIOS();
       statusEl.textContent = enabled
-        ? 'Notifications ON. Alerts fire 10 min before start & drop — use Test alert, then activate a plan.'
-        : 'Notifications OFF. Tap "Open Notification Settings" and turn them on.';
+        ? (ios
+          ? 'Notifications ON. iOS will alert 10 min before start & drop — tap Test alert, then activate a plan.'
+          : 'Notifications ON. Alerts fire 10 min before start & drop — use Test alert, then activate a plan.')
+        : (ios
+          ? 'Notifications OFF. Tap below — iOS will ask to Allow, or open Settings.'
+          : 'Notifications OFF. Tap "Open Notification Settings" and turn them on.');
       statusEl.classList.toggle('npb-status-ok', enabled);
     }
   }
@@ -80,15 +85,24 @@
 
     const enableBtn = document.getElementById('npb-enable-btn');
     const testBtn = document.getElementById('npb-test-btn');
+    const hintEl = document.querySelector('.npb-hint');
+
+    if (hintEl && global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()) {
+      hintEl.textContent = 'On iPhone, tap Open Notification Settings or allow when iOS asks.';
+    }
 
     if (enableBtn) {
       enableBtn.addEventListener('click', async () => {
+        if (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()) {
+          await global.MobileNotifications.requestPermissionDialog();
+        }
         const result = await global.MobileNotifications.openNotificationSettings();
         if (!result.ok) {
           alert(
-            'Could not open settings automatically.\n\n' +
-            'On LDPlayer, open Settings manually:\n' +
-            'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
+            global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
+              ? 'Open Settings → FR Queue Optimizer → Notifications → Allow Notifications'
+              : 'On LDPlayer, open Settings manually:\n' +
+                'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
           );
         } else if (result.fallback === 'app_details') {
           alert('Opened app settings. Tap Notifications and turn them ON.');
@@ -150,11 +164,18 @@
             const exact = result.exactAlarm === false
               ? '\n\nTip: enable "Alarms & reminders" in app settings too.'
               : '';
+            const monitorLine = result.monitoring
+              ? `Background monitor: ${result.monitoring} alerts (Android/LDPlayer).\n\n`
+              : (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
+                ? 'iOS scheduled alerts are set.\n\n'
+                : '');
             showNotifError(
               `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n` +
-              `Background monitor: ${result.monitoring || 0} alerts (keeps LDPlayer alerts alive).\n\n` +
+              monitorLine +
               (times || 'Alerts set for your plan times.') +
-              '\n\nLeave LDPlayer running — you should see a small "alerts active" notification at the top.' + exact
+              (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
+                ? '\n\nYou can leave the app — iOS will deliver alerts at the scheduled times.' + exact
+                : '\n\nLeave LDPlayer running — you should see a small "alerts active" notification at the top.' + exact)
             );
           } else if (result.reason === 'permission_denied') {
             showNotifError(
