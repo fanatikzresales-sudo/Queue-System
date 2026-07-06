@@ -55,7 +55,7 @@
   }
 
   async function ensureChannels() {
-    if (channelsReady || !ln()) return;
+    if (channelsReady || !ln() || isIOS()) return;
     await ln().createChannel({
       id: CHANNEL_ALERTS,
       name: 'Queue Plan Reminders',
@@ -121,11 +121,14 @@
   }
 
   async function openExactAlarmSettings() {
+    if (isIOS()) {
+      return openNotificationSettings().then(r => r.ok);
+    }
     if (appSettings() && typeof appSettings().openExactAlarmSettings === 'function') {
       await appSettings().openExactAlarmSettings();
       return true;
     }
-    if (ln() && typeof ln().changeExactNotificationSetting === 'function') {
+    if (isAndroid() && ln() && typeof ln().changeExactNotificationSetting === 'function') {
       await ln().changeExactNotificationSetting();
       return true;
     }
@@ -133,6 +136,7 @@
   }
 
   async function hasExactAlarmPermission() {
+    if (isIOS()) return true;
     if (!ln() || typeof ln().checkExactNotificationSetting !== 'function') return true;
     try {
       const status = await ln().checkExactNotificationSetting();
@@ -143,6 +147,7 @@
   }
 
   async function ensureExactAlarmPermission() {
+    if (isIOS()) return true;
     if (await hasExactAlarmPermission()) return true;
     const open = confirm(
       'For on-time drop alerts, enable "Alarms & reminders" for FR Queue Optimizer.\n\n' +
@@ -380,7 +385,7 @@
     const alarms = toAlarmPayload(notifications);
     const pa = planAlarm();
 
-    if (pa && typeof pa.scheduleAlarms === 'function') {
+    if (isAndroid() && pa && typeof pa.scheduleAlarms === 'function') {
       try {
         const result = await pa.scheduleAlarms({ alarms });
         return { method: 'native_alarm', count: result.scheduled || alarms.length };
@@ -410,7 +415,7 @@
 
   async function showNotificationNow(id, title, body, channelId) {
     const pa = planAlarm();
-    if (pa && typeof pa.showNow === 'function') {
+    if (isAndroid() && pa && typeof pa.showNow === 'function') {
       try {
         await pa.showNow({ id, title, body, channel: channelId || CHANNEL_ALERTS });
         return true;

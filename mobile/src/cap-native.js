@@ -4,13 +4,14 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 const AppSettings = registerPlugin('AppSettings');
-const PlanAlarm = registerPlugin('PlanAlarm');
+const PlanAlarm = Capacitor.getPlatform() === 'android' ? registerPlugin('PlanAlarm') : null;
 
 window.__DROP_REMINDER_MINUTES = 10;
 window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings, PlanAlarm };
 
 async function initNativeNotifications() {
   if (!Capacitor.isNativePlatform()) return;
+  if (Capacitor.getPlatform() !== 'android') return;
   try {
     const channels = [
       {
@@ -33,7 +34,7 @@ async function initNativeNotifications() {
     for (const ch of channels) {
       await LocalNotifications.createChannel(ch);
     }
-    if (typeof LocalNotifications.checkExactNotificationSetting === 'function') {
+    if (typeof LocalNotifications.checkExactNotificationSetting === 'function' && Capacitor.getPlatform() === 'android') {
       const exact = await LocalNotifications.checkExactNotificationSetting();
       if (exact.exact_alarm !== 'granted') {
         console.warn('Exact alarm permission not granted — scheduled alerts may be late');
