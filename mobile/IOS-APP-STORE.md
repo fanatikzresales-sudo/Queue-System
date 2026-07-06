@@ -53,14 +53,18 @@ Android-only (not needed on iOS):
 
 ## Build the iOS app (on Mac)
 
+**Important:** Do not open Xcode until you run the commands below. Xcode needs `node_modules` (from `npm install`) to resolve the `CapApp-SPM` Swift package. Opening the project without that causes **"Missing package product CapApp-SPM"**.
+
 ```bash
 cd mobile
 npm install
-npm run sync:www
-npm run build:js
-npx cap sync ios
-npm run cap:ios          # opens Xcode
+npm run cap:ios          # syncs assets, registers plugins, resolves packages, opens Xcode
 ```
+
+If you already opened Xcode and see **Missing package product CapApp-SPM**:
+1. Quit Xcode
+2. Run `npm install` then `npm run cap:ios` from the `mobile` folder
+3. Or in Xcode: **File → Packages → Reset Package Caches**, then **Resolve Package Versions**
 
 In **Xcode**:
 1. Select the **App** target

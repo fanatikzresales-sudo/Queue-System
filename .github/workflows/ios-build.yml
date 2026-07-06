@@ -35,6 +35,7 @@ jobs:
           npm run build:js
           npx cap sync ios
           node scripts/patch-ios-plugins.js
+          node scripts/resolve-ios-packages.js
           cd ios/App
           xcodebuild -project App.xcodeproj -scheme App \
             -destination 'generic/platform=iOS Simulator' \
