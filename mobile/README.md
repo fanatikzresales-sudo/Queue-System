@@ -17,6 +17,8 @@ Built with [Capacitor](https://capacitorjs.com/) (same UI as the desktop app, sc
 
 Install: open the APK on the phone/emulator → allow unknown sources → enable notifications in app settings.
 
+**iPhone users:** There is no APK. They install from the **App Store** after you publish. See **[IOS-APP-STORE.md](./IOS-APP-STORE.md)**.
+
 ---
 
 ## Requirements (builders only)
