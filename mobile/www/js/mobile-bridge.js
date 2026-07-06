@@ -179,13 +179,18 @@
               : (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
                 ? 'iOS scheduled alerts are set.\n\n'
                 : '');
+            const pendingLine = result.pending != null
+              ? `Pending on device: ${result.pending}\n\n`
+              : '';
             showNotifError(
               `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n` +
+              pendingLine +
               monitorLine +
-              (times || 'Alerts set for your plan times.') +
+              (times || 'Immediate "Plan active" alert sent — check Notification Center.') +
               (global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
-                ? '\n\nYou can leave the app — iOS will deliver alerts at the scheduled times.' + exact
-                : '\n\nLeave LDPlayer running — you should see a small "alerts active" notification at the top.' + exact)
+                ? '\n\nPress Home to background the app. Alerts also appear at the scheduled times below.'
+                : '\n\nLeave LDPlayer running — you should see a small "alerts active" notification at the top.') +
+              exact
             );
           } else if (result.reason === 'permission_denied') {
             showNotifError(
@@ -196,7 +201,7 @@
                   'Settings → Apps → FR Queue Optimizer → Notifications → Allow'
             );
           } else {
-            showNotifError('Could not schedule reminders: ' + (result.reason || 'unknown error'));
+            showNotifError(result.message || ('Could not schedule reminders: ' + (result.reason || 'unknown error')));
           }
         });
       }

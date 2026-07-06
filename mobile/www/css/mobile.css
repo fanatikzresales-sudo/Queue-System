@@ -184,3 +184,43 @@ select {
 .npb-status-ok {
   color: #2ecc71 !important;
 }
+
+/* Custom plan activate + name overlay (iPhone) */
+.step-card {
+  flex-wrap: wrap;
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-alert-area {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.name-overlay {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.name-overlay-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.name-overlay-activate {
+  width: 100%;
+  white-space: normal;
+  min-height: 44px;
+}
+
+.name-overlay-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.name-overlay-cancel {
+  align-self: flex-end;
+}

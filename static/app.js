@@ -627,9 +627,9 @@ function renderResults(data) {
             ? `<small class="pc-effective-switch">Final delay active at ${s2.effective_switch_at}</small>`
             : ""}
           <small>${s2.refreshes_until_next} refreshes → queue live</small>
-        </div>
-        <div class="custom-alert-area" id="custom-alert-area">
-          <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+          <div class="custom-alert-area" id="custom-alert-area">
+            <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+          </div>
         </div>
       </div>
     `;

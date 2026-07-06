@@ -80,6 +80,13 @@
   }
 
   async function areNotificationsEnabled() {
+    if (ln()) {
+      try {
+        const p = await ln().checkPermissions();
+        if (p.display === 'granted') return true;
+        if (isIOS() && p.display === 'denied') return false;
+      } catch (_) {}
+    }
     if (appSettings() && typeof appSettings().checkNotificationEnabled === 'function') {
       try {
         const r = await appSettings().checkNotificationEnabled();
@@ -420,8 +427,7 @@
         }
       }
       if (scheduled === 0) {
-        const msg = errors[0] || 'No future alerts could be scheduled (times may be in the past)';
-        throw new Error(msg);
+        return { method: 'capacitor_ios', count: 0, errors };
       }
       return { method: 'capacitor_ios', count: scheduled, errors };
     }
@@ -478,44 +484,69 @@
     await ensureExactAlarmPermission();
 
     const now = Date.now();
-    const notifications = buildPlanNotifications(planId, name, plan, now);
-
-    try {
-      const scheduleResult = await scheduleNotifications(notifications);
-      const alarmPayload = toAlarmPayload(notifications);
-
-      let monitoring = 0;
-      const pa = planAlarm();
-      if (isAndroid() && pa && typeof pa.startPlanMonitor === 'function') {
-        try {
-          const mon = await pa.startPlanMonitor({ alarms: alarmPayload, planName: name });
-          monitoring = mon.monitoring || 0;
-        } catch (err) {
-          console.warn('startPlanMonitor failed:', err);
-        }
-      }
-
-      await showNotificationNow(
-        notifId(planId, 0),
-        `${name} — Plan active`,
-        `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
-        CHANNEL_ALERTS
-      );
+    const p = normalizePlanTimes(plan);
+    if (!p.start_ts_ms || !p.drop_ts_ms) {
       return {
-        ok: true,
-        scheduled: notifications.length,
-        monitoring,
-        method: scheduleResult.method,
-        exactAlarm: await hasExactAlarmPermission(),
-        times: alarmPayload.map(a => ({
+        ok: false,
+        reason: 'missing_times',
+        message: 'Plan times are missing. Tap Queue Optimize again, then activate.',
+      };
+    }
+
+    const notifications = buildPlanNotifications(planId, name, plan, now);
+    const futureNotifications = notifications.filter(n => n.extra?.type !== 'confirmed');
+
+    const immediateOk = await showNotificationNow(
+      notifId(planId, 0),
+      `${name} — Plan active`,
+      `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
+      CHANNEL_ALERTS
+    );
+
+    let scheduleResult = { method: 'none', count: 0, errors: [] };
+    try {
+      scheduleResult = await scheduleNotifications(
+        futureNotifications.length ? futureNotifications : notifications
+      );
+    } catch (err) {
+      console.error('schedulePlanNotifications batch failed', err);
+      scheduleResult.errors = [err.message || String(err)];
+    }
+
+    if (!immediateOk && scheduleResult.count === 0) {
+      const errMsg = (scheduleResult.errors && scheduleResult.errors[0]) ||
+        'Could not schedule alerts (times may already be in the past)';
+      return { ok: false, reason: 'schedule_failed', message: errMsg };
+    }
+
+    const alarmPayload = toAlarmPayload(notifications);
+
+    let monitoring = 0;
+    const pa = planAlarm();
+    if (isAndroid() && pa && typeof pa.startPlanMonitor === 'function') {
+      try {
+        const mon = await pa.startPlanMonitor({ alarms: alarmPayload, planName: name });
+        monitoring = mon.monitoring || 0;
+      } catch (err) {
+        console.warn('startPlanMonitor failed:', err);
+      }
+    }
+
+    const pending = await getPendingCount();
+    return {
+      ok: true,
+      scheduled: scheduleResult.count + (immediateOk ? 1 : 0),
+      monitoring,
+      method: scheduleResult.method,
+      exactAlarm: await hasExactAlarmPermission(),
+      pending,
+      times: alarmPayload
+        .filter(a => a.atMs > now + 500)
+        .map(a => ({
           title: a.title,
           at: new Date(a.atMs).toLocaleString(),
         })),
-      };
-    } catch (err) {
-      console.error('schedulePlanNotifications failed', err);
-      return { ok: false, reason: err.message || 'schedule_failed' };
-    }
+    };
   }
 
   async function getPendingCount() {
