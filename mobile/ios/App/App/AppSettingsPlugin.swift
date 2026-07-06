@@ -15,52 +15,8 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func openNotificationSettings(_ call: CAPPluginCall) {
-        if #available(iOS 16.0, *) {
-            openNotificationSettingsDirect(call)
-        } else {
-            openAppSettings(call, direct: false)
-        }
-    }
-
-    @available(iOS 16.0, *)
-    private func openNotificationSettingsDirect(_ call: CAPPluginCall) {
-        let settingsURL = UIApplication.openNotificationSettingsURLString
-        guard let url = URL(string: settingsURL) else {
-            call.reject("Could not open notification settings")
-            return
-        }
-
-        DispatchQueue.main.async {
-            UIApplication.shared.open(url, options: [:]) { opened in
-                if opened {
-                    call.resolve(["opened": true, "direct": true])
-                } else if let fallback = URL(string: UIApplication.openSettingsURLString) {
-                    // Fallback if deep link fails (e.g. notifications never requested yet)
-                    UIApplication.shared.open(fallback, options: [:]) { _ in
-                        call.resolve(["opened": true, "direct": false, "fallback": true])
-                    }
-                } else {
-                    call.reject("Could not open settings")
-                }
-            }
-        }
-    }
-
-    private func openAppSettings(_ call: CAPPluginCall, direct: Bool) {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else {
-            call.reject("Could not open notification settings")
-            return
-        }
-
-        DispatchQueue.main.async {
-            UIApplication.shared.open(url, options: [:]) { opened in
-                if opened {
-                    call.resolve(["opened": true, "direct": direct])
-                } else {
-                    call.reject("Could not open notification settings")
-                }
-            }
-        }
+        let direct = Self.usesDirectNotificationSettingsURL()
+        openURL(Self.notificationSettingsURLString(), direct: direct, call: call)
     }
 
     @objc func openAppDetails(_ call: CAPPluginCall) {
@@ -81,6 +37,41 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
                 enabled = false
             }
             call.resolve(["enabled": enabled])
+        }
+    }
+
+    private static func usesDirectNotificationSettingsURL() -> Bool {
+        if #available(iOS 15.4, *) {
+            return true
+        }
+        return false
+    }
+
+    private static func notificationSettingsURLString() -> String {
+        if #available(iOS 15.4, *) {
+            return UIApplicationOpenNotificationSettingsURLString
+        }
+        return UIApplication.openSettingsURLString
+    }
+
+    private func openURL(_ urlString: String, direct: Bool, call: CAPPluginCall) {
+        guard let url = URL(string: urlString) else {
+            call.reject("Could not open notification settings")
+            return
+        }
+
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened {
+                    call.resolve(["opened": true, "direct": direct])
+                } else if direct, let fallback = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(fallback, options: [:]) { _ in
+                        call.resolve(["opened": true, "direct": false, "fallback": true])
+                    }
+                } else {
+                    call.reject("Could not open notification settings")
+                }
+            }
         }
     }
 }

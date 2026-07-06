@@ -10,8 +10,9 @@
     "build": "npm run sync:www && npm run build:js",
     "verify": "node scripts/verify-scheduler.js",
     "cap:sync": "npm run build && npx cap sync",
+    "cap:sync:ios": "npm run build && npx cap sync ios && node scripts/patch-ios-plugins.js",
     "cap:android": "npm run cap:sync && npx cap open android",
-    "cap:ios": "npm run cap:sync && npx cap open ios",
+    "cap:ios": "npm run cap:sync:ios && npx cap open ios",
     "cap:add:android": "npx cap add android",
     "cap:add:ios": "npx cap add ios"
   },

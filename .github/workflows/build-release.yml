@@ -128,13 +128,45 @@ jobs:
           ./gradlew assembleDebug --no-daemon
 
       - name: Rename APK for release
-        run: cp mobile/android/app/build/outputs/apk/debug/app-debug.apk mobile/FRQueueOptimizer-Android.apk
+        run: |
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk mobile/FRQueueOptimizer-Android.apk
+          cd mobile && zip FRQueueOptimizer-Android.zip FRQueueOptimizer-Android.apk
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: mobile/FRQueueOptimizer-Android.apk
+          path: |
+            mobile/FRQueueOptimizer-Android.apk
+            mobile/FRQueueOptimizer-Android.zip
+
+  # ── iOS compile check (mobile companion) ─────────────────────────────────────
+  build-ios:
+    name: Build iOS App
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Build iOS (compile only)
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run sync:www
+          npm run build:js
+          npx cap sync ios
+          node scripts/patch-ios-plugins.js
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug build CODE_SIGNING_ALLOWED=NO
 
   # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
@@ -174,10 +206,10 @@ jobs:
             |----------|------|
             | **Windows** | `FRQueueOptimizer.exe` — double-click to open |
             | **Mac** | `FRQueueOptimizer-Mac.zip` — unzip, drag to Applications |
-            | **Android** | `FRQueueOptimizer-Android.apk` — install on phone or LDPlayer (enable unknown sources) |
+            | **Android** | `FRQueueOptimizer-Android.apk` or `.zip` — install on phone (enable unknown sources) |
 
             ### Android install
-            1. Download `FRQueueOptimizer-Android.apk`
+            1. Download `FRQueueOptimizer-Android.apk` (or unzip `FRQueueOptimizer-Android.zip` first)
             2. Open it on your Android device or emulator (LDPlayer, BlueStacks, etc.)
             3. Allow install from unknown sources if prompted
             4. Open the app → enable notifications → tap **Test alert**
@@ -195,5 +227,6 @@ jobs:
             release-files/FRQueueOptimizer.exe
             release-files/FRQueueOptimizer-Mac.zip
             release-files/FRQueueOptimizer-Android.apk
+            release-files/FRQueueOptimizer-Android.zip
           draft: false
           prerelease: false

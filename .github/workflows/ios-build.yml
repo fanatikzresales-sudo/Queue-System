@@ -1,0 +1,41 @@
+name: iOS Build Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/ios/**'
+      - 'mobile/package.json'
+      - 'mobile/package-lock.json'
+      - 'mobile/scripts/**'
+      - 'mobile/src/**'
+      - 'mobile/www/**'
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Compile iOS App
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Build iOS (compile only)
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run sync:www
+          npm run build:js
+          npx cap sync ios
+          node scripts/patch-ios-plugins.js
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug build CODE_SIGNING_ALLOWED=NO
