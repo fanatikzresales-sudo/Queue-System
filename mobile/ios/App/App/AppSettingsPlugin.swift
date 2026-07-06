@@ -16,10 +16,13 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func openNotificationSettings(_ call: CAPPluginCall) {
         let settingsURL: String
+        let isDirectNotificationSettings: Bool
         if #available(iOS 16.0, *) {
             settingsURL = UIApplication.openNotificationSettingsURLString
+            isDirectNotificationSettings = true
         } else {
             settingsURL = UIApplication.openSettingsURLString
+            isDirectNotificationSettings = false
         }
 
         guard let url = URL(string: settingsURL) else {
@@ -30,8 +33,8 @@ public class AppSettingsPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             UIApplication.shared.open(url, options: [:]) { opened in
                 if opened {
-                    call.resolve(["opened": true, "direct": settingsURL == UIApplication.openNotificationSettingsURLString])
-                } else if #available(iOS 16.0, *), settingsURL == UIApplication.openNotificationSettingsURLString {
+                    call.resolve(["opened": true, "direct": isDirectNotificationSettings])
+                } else if isDirectNotificationSettings {
                     // Fallback if deep link fails (e.g. notifications never requested yet)
                     if let fallback = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(fallback, options: [:]) { _ in
