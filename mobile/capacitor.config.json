@@ -13,7 +13,8 @@
       "showSpinner": false
     },
     "LocalNotifications": {
-      "smallIcon": "ic_stat_icon"
+      "smallIcon": "ic_stat_icon",
+      "presentationOptions": ["banner", "list", "badge", "sound"]
     }
   },
   "android": {

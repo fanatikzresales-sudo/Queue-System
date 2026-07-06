@@ -188,6 +188,21 @@
   }
 
   async function ensurePermissionsWithPrompt() {
+    if (!ln()) return false;
+    await ensureChannels();
+
+    if (isIOS()) {
+      const perm = await ln().requestPermissions();
+      if (perm.display === 'granted') return true;
+      const open = confirm(
+        'FR Queue Optimizer needs notification permission.\n\n' +
+        'Tap OK to open Settings → Notifications → turn ON Allow Notifications.'
+      );
+      if (open) await openNotificationSettings();
+      const recheck = await ln().checkPermissions();
+      return recheck.display === 'granted';
+    }
+
     const enabled = await areNotificationsEnabled();
     if (enabled) return true;
 
@@ -222,6 +237,21 @@
 
   function scheduleAt(whenMs) {
     return { at: new Date(whenMs), allowWhileIdle: true };
+  }
+
+  /** iOS ignores Android channels; sound:'default' breaks iOS (looks for missing file). */
+  function forPlatform(notif) {
+    const copy = { ...notif };
+    if (isIOS()) {
+      delete copy.channelId;
+      delete copy.smallIcon;
+      delete copy.sound;
+    }
+    return copy;
+  }
+
+  function forPlatformList(notifications) {
+    return notifications.map(forPlatform);
   }
 
   function baseNotif(id, title, body, channelId, whenMs, extra) {
@@ -361,18 +391,20 @@
 
     if (!ln()) throw new Error('No notification backend available');
 
+    const payload = forPlatformList(notifications);
+
     try {
-      await ln().schedule({ notifications });
-      return { method: 'capacitor', count: notifications.length };
+      await ln().schedule({ notifications: payload });
+      return { method: 'capacitor', count: payload.length };
     } catch (err) {
-      const fallback = notifications.map(n => {
+      const fallback = payload.map(n => {
         const copy = { ...n };
         delete copy.smallIcon;
         return copy;
       });
       await ln().schedule({ notifications: fallback });
-      console.warn('Scheduled without smallIcon after error:', err);
-      return { method: 'capacitor_no_icon', count: fallback.length };
+      console.warn('Scheduled fallback after error:', err);
+      return { method: 'capacitor_fallback', count: fallback.length };
     }
   }
 
@@ -387,14 +419,14 @@
     if (!ln()) return false;
     try {
       await ln().schedule({
-        notifications: [{
+        notifications: forPlatformList([{
           id,
           title: String(title).slice(0, 64),
           body: String(body).slice(0, 240),
           channelId: channelId || CHANNEL_ALERTS,
           schedule: scheduleAt(Date.now() + 300),
           sound: 'default',
-        }],
+        }]),
       });
       return true;
     } catch (_) {
@@ -465,12 +497,15 @@
       await scheduleNotifications([{
         id: 999001,
         title: 'FR Queue Optimizer — Test alert',
-        body: 'If you see this, background notifications are working!',
+        body: 'If you see this, notifications are working!',
         channelId: CHANNEL_URGENT,
         schedule: scheduleAt(Date.now() + 5000),
         sound: 'default',
       }]);
-      return { ok: true, message: 'Test alert in 5 seconds — minimize LDPlayer or switch apps and wait.' };
+      const msg = isIOS()
+        ? 'Test alert in 5 seconds.\n\nOn iPhone: swipe down from the top to see Notification Center, or press Home to background the app.'
+        : 'Test alert in 5 seconds — minimize the app or switch apps and wait.';
+      return { ok: true, message: msg };
     } catch (err) {
       return { ok: false, reason: err.message };
     }

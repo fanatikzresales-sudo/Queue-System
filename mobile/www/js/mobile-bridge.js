@@ -115,9 +115,13 @@
       testBtn.addEventListener('click', async () => {
         const result = await global.MobileNotifications.sendTestNotification();
         if (result.ok) {
-          alert(result.message + '\n\nSwitch to another app and wait 5 seconds.');
+          alert(result.message);
         } else if (result.reason === 'permission_denied') {
-          alert('Notifications still off. Use "Open Notification Settings" first.');
+          alert(
+            global.MobileNotifications.isIOS && global.MobileNotifications.isIOS()
+              ? 'Notifications are off.\n\nSettings → FR Queue Optimizer → Notifications → Allow Notifications'
+              : 'Notifications still off. Use "Open Notification Settings" first.'
+          );
         } else {
           alert('Test failed: ' + (result.reason || 'unknown'));
         }
