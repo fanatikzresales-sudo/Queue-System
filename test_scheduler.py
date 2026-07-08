@@ -8,6 +8,7 @@ from scheduler import (
     CENTRAL,
     DropPlanMode,
     TimingMode,
+    build_demo_from_preset,
     build_schedule,
     create_demo_target,
     find_aligned_delay,
@@ -238,6 +239,41 @@ class TestDropPlanModes(unittest.TestCase):
             initial_delay_ms=60_000,
             drop_mode=DropPlanMode.LONG_DROP,
         )
+        self.assertTrue(schedule.hits_target_exactly)
+
+    def test_preset_with_target_final_delay_matches_card(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        preset = preset_schedules(target=target, timing_mode=TimingMode.INSTANT)[0]
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=preset.start_delay_ms,
+            target_final_delay_ms=preset.final_delay_ms,
+            switch_minutes_before=preset.switch_minutes_before,
+        )
+        self.assertEqual(schedule.steps[1].delay_ms, preset.final_delay_ms)
+        self.assertTrue(schedule.hits_target_exactly)
+
+    def test_late_drop_presets_exist(self):
+        target = self._target()
+        plans = preset_schedules_late_drop(target=target, timing_mode=TimingMode.INSTANT)
+        window_plans = [p for p in plans if "min before" in p.label]
+        self.assertGreaterEqual(len(window_plans), 4)
+        for plan in window_plans:
+            self.assertLessEqual(plan.switch_minutes_before, 7)
+            self.assertGreaterEqual(plan.switch_minutes_before, 1.5)
+
+    def test_demo_from_preset_uses_exact_delays(self):
+        target = self._target()
+        preset = preset_schedules(target=target, timing_mode=TimingMode.INSTANT)[0]
+        schedule = build_demo_from_preset(
+            start_delay_ms=preset.start_delay_ms,
+            final_delay_ms=preset.final_delay_ms,
+            switch_minutes_before=preset.switch_minutes_before,
+            timing_mode=TimingMode.INSTANT,
+        )[0]
+        self.assertEqual(schedule.steps[1].delay_ms, preset.final_delay_ms)
         self.assertTrue(schedule.hits_target_exactly)
 
 

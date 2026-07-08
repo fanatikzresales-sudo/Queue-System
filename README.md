@@ -62,6 +62,28 @@ The app pre-computes the best plan for each common final delay:
 
 Click **▶ Watch Demo** on any card to run a live 3-minute simulation and verify it lands on queue time exactly.
 
+### Late Drop presets
+
+A second row of presets drops **2–5 minutes before queue** — shorter runs when you want to start closer to go-live.
+
+---
+
+## Mobile app (Android & iOS)
+
+A phone companion app is in the [`mobile/`](mobile/) folder — same presets, custom optimizer, live demo, and **native drop reminders**.
+
+```bash
+cd mobile
+npm install
+npm run build
+npx cap add android   # first time
+npx cap add ios       # first time (Mac + Xcode)
+npm run cap:android   # open Android Studio
+npm run cap:ios       # open Xcode
+```
+
+See [mobile/README.md](mobile/README.md) for full build and publish steps.
+
 ---
 
 ## Build from source

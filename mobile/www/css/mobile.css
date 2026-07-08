@@ -1,0 +1,226 @@
+/* Mobile layout — safe areas, touch targets, Android + iOS */
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html.capacitor-native {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+.page {
+  max-width: 100%;
+  padding-bottom: calc(1.5rem + var(--safe-bottom));
+}
+
+header h1 {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+}
+
+.top-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.top-bar-right {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.preset-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 600px) {
+  .preset-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.preset-header {
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timing-mode-toggle {
+  width: 100%;
+}
+
+.timing-mode-btn {
+  flex: 1;
+  min-height: 44px;
+}
+
+.custom-row {
+  grid-template-columns: 1fr;
+}
+
+.pc-btn-row button,
+.primary,
+.btn-demo-live,
+.ap-cancel-btn,
+.ap-cancel-all-btn,
+#optimize_btn {
+  min-height: 44px;
+}
+
+.notif-popup {
+  max-width: calc(100vw - 2rem - var(--safe-left) - var(--safe-right));
+  left: calc(1rem + var(--safe-left));
+  right: calc(1rem + var(--safe-right));
+}
+
+.live-grid {
+  grid-template-columns: 1fr;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS date/time inputs */
+input[type="date"],
+input[type="time"],
+select {
+  font-size: 16px;
+}
+
+.capacitor-native .update-banner {
+  display: none !important;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.app-header-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+@media (min-width: 600px) {
+  .app-logo {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+.notif-permission-banner {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(52, 152, 219, 0.12));
+  border: 1px solid rgba(46, 204, 113, 0.45);
+  border-radius: 10px;
+}
+
+.npb-inner strong {
+  display: block;
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+
+.npb-inner p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-muted, #aaa);
+}
+
+.npb-hint {
+  font-size: 0.82rem !important;
+  color: #f39c12 !important;
+}
+
+.npb-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.npb-btn {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.npb-btn.primary {
+  background: var(--accent, #2ecc71);
+  color: #111;
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.npb-status-ok {
+  color: #2ecc71 !important;
+}
+
+/* Custom plan activate + name overlay (iPhone) */
+.step-card {
+  flex-wrap: wrap;
+}
+
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-alert-area {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.name-overlay {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.name-overlay-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.name-overlay-activate {
+  width: 100%;
+  white-space: normal;
+  min-height: 44px;
+}
+
+.name-overlay-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.name-overlay-cancel {
+  align-self: flex-end;
+}

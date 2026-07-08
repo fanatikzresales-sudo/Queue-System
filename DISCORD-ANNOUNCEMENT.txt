@@ -1,0 +1,58 @@
+## FR Queue Optimizer — Update
+
+### What's New
+
+**Android Mobile App**
+• FR Queue Optimizer mobile companion for Android
+• Same presets, custom schedules, and live demo as desktop
+• Works fully offline — all timing runs on your phone
+• Fanatikz logo as app icon and in-app branding
+
+**Mobile Notifications**
+• Alert 10 minutes before start — time to set your initial delay
+• Alert 10 minutes before drop — time to get ready to change delay
+• Alerts at exact start and drop times
+• Test alert button to confirm notifications work
+• Open Notification Settings button for quick setup
+• Best on real Android phones (emulators like LDPlayer may not get timed alerts reliably)
+
+**Desktop (Windows & Mac)**
+• Instant Switch and Deferred Switch timing modes
+• More queue presets + timezone fixes
+• Watch Demo uses exact preset delays
+• Auto-update on close — app checks for updates when you close it
+• v1.3.1 — Watch Demo preset fix
+
+---
+
+### How to Get the Android App
+
+1. Go to: https://github.com/fanatikzresales-sudo/Queue-System/releases
+2. Download FRQueueOptimizer-Android.apk (or the .zip if APK is blocked)
+3. Open the file on your Android phone
+4. Allow Install from unknown sources if asked
+5. Open the app → enable Notifications → tap Test alert in 5 sec
+
+---
+
+### After Installing (Android)
+
+1. Tap Open Notification Settings → turn notifications ON
+2. On Android 12+: enable Alarms & reminders for the app if prompted
+3. Tap Test alert — you should get a notification in 5 seconds
+4. Pick a preset or use Custom Start Time → activate a plan
+5. Leave the app running in the background (don't force-close before alerts)
+
+---
+
+### Downloads
+
+**Windows:** FRQueueOptimizer.exe
+**Mac:** FRQueueOptimizer-Mac.zip
+**Android:** FRQueueOptimizer-Android.apk
+
+**Releases page:** https://github.com/fanatikzresales-sudo/Queue-System/releases
+
+---
+
+**Note:** Bot still runs on your PC — mobile is your planner + alarm for drop times. Real Android phones work best for notifications.

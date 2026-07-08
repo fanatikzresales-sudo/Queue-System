@@ -21,6 +21,7 @@ from scheduler import (
     TIMEZONE_LABELS,
     TIMEZONES,
     best_delay_for_demo,
+    build_demo_from_preset,
     build_schedule,
     create_demo_target,
     find_compatible_custom_starts,
@@ -141,6 +142,18 @@ def demo_live():
     return render_template("demo_live.html", timezones=TIMEZONE_LABELS, app_version=APP_VERSION)
 
 
+def _parse_optional_int(value) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _parse_optional_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
 @app.route("/api/demo-live", methods=["GET"])
 def demo_live_api():
     tz_key = (request.args.get("timezone") or "CDT").upper()
@@ -152,18 +165,10 @@ def demo_live_api():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    # Accept optional final_delay hint from preset cards
-    try:
-        requested_final = int(request.args.get("final_delay", 0)) or None
-    except (TypeError, ValueError):
-        requested_final = None
-
-    # Auto-size the start delay to fit the 3-minute demo window,
-    # while trying to preserve the preset's final delay for authenticity.
-    demo_start_delay, demo_final_delay = best_delay_for_demo(
-        demo_minutes=LIVE_DEMO_MINUTES,
-        target_final_delay_ms=requested_final,
-    )
+    requested_start = _parse_optional_int(request.args.get("start_delay"))
+    requested_final = _parse_optional_int(request.args.get("final_delay"))
+    switch_minutes_before = _parse_optional_float(request.args.get("switch_minutes_before"))
+    preset_label = (request.args.get("label") or "").strip()
 
     tz = get_timezone(tz_key)
     now = datetime.now(tz).replace(microsecond=0)
@@ -171,13 +176,33 @@ def demo_live_api():
     start = now
 
     try:
-        schedule = build_schedule(
-            target=target,
-            start=start,
-            tz_key=tz_key,
-            initial_delay_ms=demo_start_delay,
-            timing_mode=timing_mode,
-        )
+        if requested_start and requested_final:
+            schedule, demo_duration = build_demo_from_preset(
+                start_delay_ms=requested_start,
+                final_delay_ms=requested_final,
+                switch_minutes_before=switch_minutes_before,
+                timing_mode=timing_mode,
+                tz_key=tz_key,
+                now=now,
+            )
+            demo_start_delay = schedule.steps[0].delay_ms
+            demo_final_delay = schedule.steps[1].delay_ms
+            from_preset = True
+        else:
+            demo_duration = LIVE_DEMO_MINUTES
+            demo_start_delay, demo_final_delay = best_delay_for_demo(
+                demo_minutes=demo_duration,
+                target_final_delay_ms=requested_final,
+            )
+            schedule = build_schedule(
+                target=target,
+                start=start,
+                tz_key=tz_key,
+                initial_delay_ms=demo_start_delay,
+                target_final_delay_ms=demo_final_delay if requested_final else None,
+                timing_mode=timing_mode,
+            )
+            from_preset = False
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -185,9 +210,11 @@ def demo_live_api():
         {
             "mode": "live_demo",
             "timing_mode": timing_mode.value,
-            "demo_duration_minutes": LIVE_DEMO_MINUTES,
+            "demo_duration_minutes": demo_duration,
             "initial_delay_ms": demo_start_delay,
             "final_delay_ms": demo_final_delay,
+            "from_preset": from_preset,
+            "preset_label": preset_label or None,
             **schedule_to_live_demo(schedule),
         }
     )
@@ -220,6 +247,7 @@ def _plan_to_json(p):
         "timing_mode": p.timing_mode,
         "effective_switch_ts_ms": p.effective_switch_ts_ms,
         "effective_switch_time_display": p.effective_switch_time_display,
+        "switch_minutes_before": p.switch_minutes_before,
         "preset_category": p.preset_category,
         "drop_mode": p.drop_mode,
     }
@@ -271,6 +299,30 @@ def index():
     )
 
 
+@app.route("/api/queue-defaults", methods=["GET"])
+def queue_defaults_api():
+    """Return queue/start times in the user's selected timezone."""
+    tz_key = (request.args.get("timezone") or "CDT").upper()
+    if tz_key not in TIMEZONES:
+        return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+
+    tz = get_timezone(tz_key)
+    target = next_walmart_queue_time(tz_key=tz_key)
+    target_local = target.astimezone(tz)
+    start_suggest = target_local - timedelta(hours=1)
+
+    return jsonify(
+        {
+            "timezone": tz_key,
+            "custom_date": target_local.strftime("%Y-%m-%d"),
+            "queue_time": target_local.strftime("%H:%M"),
+            "start_time": start_suggest.strftime("%H:%M"),
+            "queue_live": target_local.strftime("%I:%M %p").lstrip("0")
+            + f" {target_local.tzname()} — Wednesday {target_local.strftime('%B %d, %Y')}",
+        }
+    )
+
+
 @app.route("/api/preset-schedules", methods=["GET"])
 def preset_schedules_api():
     tz_key = (request.args.get("timezone") or "CDT").upper()
@@ -303,7 +355,7 @@ def optimize():
     tz_key = (data.get("timezone") or "CDT").upper()
     start_time = data.get("start_time", "")
     initial_delay_ms = int(data.get("initial_delay_ms", 60000))
-    target_final_raw = data.get("target_final_delay_ms")
+    live = bool(data.get("live", False))
 
     try:
         timing_mode = parse_timing_mode(data.get("timing_mode"))
@@ -318,12 +370,16 @@ def optimize():
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
 
-    target_final_delay_ms = None
-    if target_final_raw not in (None, "", "auto"):
+    target_final_raw = data.get("target_final_delay_ms")
+    if target_final_raw in (None, "", "auto"):
+        target_final_delay_ms = _parse_optional_int(data.get("final_delay_ms"))
+    else:
         try:
             target_final_delay_ms = int(target_final_raw)
         except (TypeError, ValueError):
             return jsonify({"error": "Invalid target_final_delay_ms."}), 400
+
+    switch_minutes_before = _parse_optional_float(data.get("switch_minutes_before"))
 
     try:
         target, mode = _resolve_optimize_target(data, tz_key)
@@ -335,6 +391,7 @@ def optimize():
             initial_delay_ms=initial_delay_ms,
             timing_mode=timing_mode,
             target_final_delay_ms=target_final_delay_ms,
+            switch_minutes_before=switch_minutes_before,
             drop_mode=drop_mode,
         )
         return jsonify({

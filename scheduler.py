@@ -108,6 +108,17 @@ PRESET_BY_LATE_DROP: list[tuple[int, str, str, list[int]]] = [
     (800,    "Last-Min · 800 ms",    "Drop 2–5 min before queue — maximum final-phase speed",       [30, 45]),
 ]
 
+# Late-drop presets — fixed switch window (minutes before queue).
+# (switch_minutes, final_delay_ms, label, description, preferred_start_windows_min)
+PRESET_BY_DROP_WINDOW: list[tuple[int, int, str, str, list[int]]] = [
+    (5, 3_000, "Drop 5 min before · 3,000 ms", "Late drop — 5 min before queue, balanced final delay", [60, 45, 30, 20]),
+    (5, 2_000, "Drop 5 min before · 2,000 ms", "Late drop — 5 min before queue, tighter refresh", [45, 30, 20]),
+    (3, 2_000, "Drop 3 min before · 2,000 ms", "Very late drop — strong precision near go-live", [45, 30, 20]),
+    (3, 1_500, "Drop 3 min before · 1,500 ms", "Very late drop — popular for Pokemon-style timing", [30, 45, 20]),
+    (2, 1_500, "Drop 2 min before · 1,500 ms", "Ultra-late drop — last-minute switch", [30, 20, 45]),
+    (2, 1_000, "Drop 2 min before · 1,000 ms", "Ultra-late drop — maximum precision at queue live", [30, 20]),
+]
+
 # All start windows to search (minutes before queue, label).
 ALL_START_WINDOWS: list[tuple[int, str]] = [
     (120, "2 hours early"),
@@ -179,7 +190,8 @@ class PresetPlan:
     timing_mode: str = TimingMode.INSTANT.value
     effective_switch_ts_ms: int = 0  # When final delay actually applies
     effective_switch_time_display: str = ""
-    preset_category: str = "long_drop"  # long_drop | late_drop
+    switch_minutes_before: float = 0  # Minutes before queue when final delay phase begins
+    preset_category: str = "standard"  # "standard" | "long_drop" | "late_drop"
     drop_mode: str = DropPlanMode.LONG_DROP.value
 
 
@@ -502,8 +514,8 @@ def build_schedule(
     tz_key: str = "CDT",
     initial_delay_ms: int | None = None,
     switch_minutes_before: float | None = None,
-    timing_mode: TimingMode | str = TimingMode.INSTANT,
     target_final_delay_ms: int | None = None,
+    timing_mode: TimingMode | str = TimingMode.INSTANT,
     drop_mode: DropPlanMode | str = DropPlanMode.LONG_DROP,
     **_kwargs,
 ) -> Schedule:
@@ -521,15 +533,16 @@ def build_schedule(
         drop_mode = parse_drop_plan_mode(drop_mode)
 
     delay = initial_delay_ms if initial_delay_ms is not None else 60_000
-    switch_candidates = (
-        LAST_MIN_SWITCH_CANDIDATES
-        if drop_mode == DropPlanMode.LAST_MIN
-        else DEFAULT_SWITCH_MINUTES_CANDIDATES
-    )
 
     steps: list[DelayStep] | None = None
 
     if target_final_delay_ms is not None:
+        if switch_minutes_before is not None:
+            switch_candidates: list[float] | None = [switch_minutes_before]
+        elif drop_mode == DropPlanMode.LAST_MIN:
+            switch_candidates = LAST_MIN_SWITCH_CANDIDATES
+        else:
+            switch_candidates = None
         steps = _find_two_step_with_final_delay(
             target=target,
             start=start,
@@ -545,6 +558,7 @@ def build_schedule(
                 f"Try a different start time, starting delay, or drop plan mode."
             )
     elif drop_mode == DropPlanMode.LAST_MIN:
+        switch_candidates = LAST_MIN_SWITCH_CANDIDATES
         for final_ms in LAST_MIN_FINAL_DELAYS:
             steps = _find_two_step_with_final_delay(
                 target=target,
@@ -622,6 +636,67 @@ def format_minutes_before(minutes: float) -> str:
     return f"{seconds:.1f} sec"
 
 
+def _append_preset_plan(
+    plans: list[PresetPlan],
+    *,
+    target: datetime,
+    tz: ZoneInfo,
+    timing_mode: TimingMode,
+    label: str,
+    description: str,
+    best_steps: list[DelayStep],
+    best_window: int,
+    window_labels: dict[int, str],
+    preset_category: str,
+    drop_mode: DropPlanMode = DropPlanMode.LONG_DROP,
+) -> None:
+    def _fmt_clock(dt: datetime) -> str:
+        local = dt.astimezone(tz)
+        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+
+    s1, s2 = best_steps[0], best_steps[1]
+    effective_switch = s2.at
+    command_at = drop_command_at(effective_switch, s1.delay_ms, timing_mode)
+    if command_at < s1.at:
+        return
+
+    drop_minutes_before = (target - command_at).total_seconds() / 60
+    switch_minutes_before = (target - effective_switch).total_seconds() / 60
+    window_label = window_labels.get(best_window, f"{best_window} min early")
+    plans.append(
+        PresetPlan(
+            label=label,
+            description=description,
+            minutes_early=best_window,
+            start_window_label=window_label,
+            start_delay_ms=s1.delay_ms,
+            drop_minutes_before=drop_minutes_before,
+            final_delay_ms=s2.delay_ms,
+            verified=True,
+            start_time_display=_fmt_clock(s1.at),
+            drop_time_display=_fmt_clock(command_at),
+            queue_time_display=_fmt_clock(target),
+            start_delay_label=format_duration_ms(s1.delay_ms),
+            final_delay_label=format_duration_ms(s2.delay_ms),
+            drop_minutes_label=format_minutes_before(drop_minutes_before),
+            refreshes_phase1=s1.refreshes_until_next or 0,
+            refreshes_phase2=s2.refreshes_until_next or 0,
+            start_h=s1.at.astimezone(tz).hour,
+            start_m=s1.at.astimezone(tz).minute,
+            start_s=s1.at.astimezone(tz).second,
+            start_ts_ms=int(s1.at.timestamp() * 1000),
+            drop_ts_ms=int(command_at.timestamp() * 1000),
+            queue_ts_ms=int(target.timestamp() * 1000),
+            timing_mode=timing_mode.value,
+            effective_switch_ts_ms=int(effective_switch.timestamp() * 1000),
+            effective_switch_time_display=_fmt_clock(effective_switch),
+            switch_minutes_before=switch_minutes_before,
+            preset_category=preset_category,
+            drop_mode=drop_mode.value,
+        )
+    )
+
+
 def preset_schedules(
     *,
     target: datetime,
@@ -647,7 +722,12 @@ def preset_schedules_late_drop(
     timing_mode: TimingMode | str = TimingMode.INSTANT,
 ) -> list[PresetPlan]:
     """Compute last-min drop presets (switch 2–5 min before queue)."""
-    return _preset_plans_for_definitions(
+    if isinstance(timing_mode, str):
+        timing_mode = parse_timing_mode(timing_mode)
+
+    tz = get_timezone(tz_key)
+    target = _ensure_tz(target, tz)
+    plans = _preset_plans_for_definitions(
         target=target,
         tz_key=tz_key,
         timing_mode=timing_mode,
@@ -656,6 +736,53 @@ def preset_schedules_late_drop(
         preset_category="late_drop",
         drop_mode=DropPlanMode.LAST_MIN,
     )
+
+    window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
+    for switch_min, final_delay_ms, label, description, preferred_windows in PRESET_BY_DROP_WINDOW:
+        window_order = list(dict.fromkeys(
+            preferred_windows + [w for w, _ in ALL_START_WINDOWS]
+        ))
+
+        best_steps: list[DelayStep] | None = None
+        best_window: int = 0
+
+        for window_min in window_order:
+            start = target - timedelta(minutes=window_min)
+            for start_delay in PRESET_START_DELAY_PREFERENCES:
+                if start_delay >= window_min * 60 * 1000:
+                    continue
+                steps = _find_two_step_with_final_delay(
+                    target=target,
+                    start=start,
+                    initial_delay_ms=start_delay,
+                    target_final_delay_ms=final_delay_ms,
+                    switch_candidates=[switch_min],
+                )
+                if steps is not None:
+                    best_steps = steps
+                    best_window = window_min
+                    break
+            if best_steps is not None:
+                break
+
+        if best_steps is None or len(best_steps) < 2:
+            continue
+
+        _append_preset_plan(
+            plans,
+            target=target,
+            tz=tz,
+            timing_mode=timing_mode,
+            label=label,
+            description=description,
+            best_steps=best_steps,
+            best_window=best_window,
+            window_labels=window_labels,
+            preset_category="late_drop",
+            drop_mode=DropPlanMode.LAST_MIN,
+        )
+
+    return plans
 
 
 def _preset_plans_for_definitions(
@@ -680,28 +807,22 @@ def _preset_plans_for_definitions(
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     plans: list[PresetPlan] = []
-
-    def _fmt_clock(dt: datetime) -> str:
-        local = dt.astimezone(tz)
-        return local.strftime("%I:%M %p").lstrip("0") + f" {local.tzname()}"
+    window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
 
     for final_delay_ms, label, description, preferred_windows in preset_definitions:
         # Build a prioritised list of start windows: preferred ones first, rest after.
         window_order = list(dict.fromkeys(
             preferred_windows + [w for w, _ in ALL_START_WINDOWS]
         ))
-        window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
 
         best_steps: list[DelayStep] | None = None
         best_window: int = 0
-        best_start_delay: int = 0
 
         for window_min in window_order:
             start = target - timedelta(minutes=window_min)
             for start_delay in PRESET_START_DELAY_PREFERENCES:
                 if start_delay >= window_min * 60 * 1000:
                     continue
-                # Only accept plans that land on our target final delay.
                 try:
                     steps = _find_two_step_with_final_delay(
                         target=target,
@@ -715,7 +836,6 @@ def _preset_plans_for_definitions(
                 if steps is not None:
                     best_steps = steps
                     best_window = window_min
-                    best_start_delay = start_delay
                     break
             if best_steps is not None:
                 break
@@ -723,45 +843,20 @@ def _preset_plans_for_definitions(
         if best_steps is None or len(best_steps) < 2:
             continue
 
-        s1, s2 = best_steps[0], best_steps[1]
-        effective_switch = s2.at
-        command_at = drop_command_at(effective_switch, s1.delay_ms, timing_mode)
-        if command_at < s1.at:
-            continue
-
-        drop_minutes_before = (target - command_at).total_seconds() / 60
-        window_label = window_labels.get(best_window, f"{best_window} min early")
-        plans.append(
-            PresetPlan(
-                label=label,
-                description=description,
-                minutes_early=best_window,
-                start_window_label=window_label,
-                start_delay_ms=s1.delay_ms,
-                drop_minutes_before=drop_minutes_before,
-                final_delay_ms=s2.delay_ms,
-                verified=True,
-                start_time_display=_fmt_clock(s1.at),
-                drop_time_display=_fmt_clock(command_at),
-                queue_time_display=_fmt_clock(target),
-                start_delay_label=format_duration_ms(s1.delay_ms),
-                final_delay_label=format_duration_ms(s2.delay_ms),
-                drop_minutes_label=format_minutes_before(drop_minutes_before),
-                refreshes_phase1=s1.refreshes_until_next or 0,
-                refreshes_phase2=s2.refreshes_until_next or 0,
-                start_h=s1.at.astimezone(tz).hour,
-                start_m=s1.at.astimezone(tz).minute,
-                start_s=s1.at.astimezone(tz).second,
-                start_ts_ms=int(s1.at.timestamp() * 1000),
-                drop_ts_ms=int(command_at.timestamp() * 1000),
-                queue_ts_ms=int(target.timestamp() * 1000),
-                timing_mode=timing_mode.value,
-                effective_switch_ts_ms=int(effective_switch.timestamp() * 1000),
-                effective_switch_time_display=_fmt_clock(effective_switch),
-                preset_category=preset_category,
-                drop_mode=drop_mode.value,
-            )
+        _append_preset_plan(
+            plans,
+            target=target,
+            tz=tz,
+            timing_mode=timing_mode,
+            label=label,
+            description=description,
+            best_steps=best_steps,
+            best_window=best_window,
+            window_labels=window_labels,
+            preset_category=preset_category,
+            drop_mode=drop_mode,
         )
+
     return plans
 
 
@@ -861,14 +956,18 @@ def _find_two_step_with_final_delay(
     initial_delay_ms: int,
     target_final_delay_ms: int,
     min_delay_ms: int = 250,
-    switch_candidates: list[int] | None = None,
+    switch_candidates: Iterable[float] | None = None,
 ) -> list[DelayStep] | None:
     """
     Build a two-step schedule where the second step uses exactly target_final_delay_ms.
-    Searches switch windows from latest to earliest in switch_candidates.
+    Searches switch windows from latest to earliest unless overridden.
     Returns None if no exact alignment is found.
     """
-    candidates = switch_candidates or DEFAULT_SWITCH_MINUTES_CANDIDATES
+    candidates = (
+        list(switch_candidates)
+        if switch_candidates is not None
+        else DEFAULT_SWITCH_MINUTES_CANDIDATES
+    )
     for switch_min in candidates:
         ideal_switch = target - timedelta(minutes=switch_min)
         if ideal_switch <= start:
@@ -1097,3 +1196,96 @@ def best_delay_for_demo(
 
     # Last resort — default values known to work
     return LIVE_DEMO_INITIAL_DELAY_MS, 5_000
+
+
+def _demo_minutes_for_preset(
+    *,
+    switch_minutes_before: float | None,
+    final_delay_ms: int,
+    start_delay_ms: int,
+) -> float:
+    """Pick a demo window long enough to mirror the preset's drop timing."""
+    switch_min = switch_minutes_before if switch_minutes_before is not None else 2.0
+    # Room for phase 2: at least ~1 minute or five final-delay ticks, whichever is larger.
+    min_phase2_ms = max(60_000, final_delay_ms * 5)
+    # Room for phase 1: at least one start-delay tick.
+    min_phase1_ms = min(start_delay_ms, 120_000)
+    total_ms = int(switch_min * 60_000) + min_phase2_ms + min_phase1_ms
+    minutes = total_ms / 60_000
+    return min(max(3.0, minutes), 10.0)
+
+
+def build_demo_from_preset(
+    *,
+    start_delay_ms: int,
+    final_delay_ms: int,
+    switch_minutes_before: float | None = None,
+    timing_mode: TimingMode | str = TimingMode.INSTANT,
+    tz_key: str = "CDT",
+    now: datetime | None = None,
+) -> tuple[Schedule, float]:
+    """
+    Build a live-demo schedule that mirrors a preset card:
+    same start delay, final delay, drop window, and timing mode when possible.
+    Returns (schedule, demo_duration_minutes).
+    """
+    if isinstance(timing_mode, str):
+        timing_mode = parse_timing_mode(timing_mode)
+
+    demo_minutes = _demo_minutes_for_preset(
+        switch_minutes_before=switch_minutes_before,
+        final_delay_ms=final_delay_ms,
+        start_delay_ms=start_delay_ms,
+    )
+
+    tz = get_timezone(tz_key)
+    now = _ensure_tz(now or datetime.now(tz), tz).replace(microsecond=0)
+    target = now + timedelta(minutes=demo_minutes)
+    start = now
+
+    attempts: list[tuple[int, float | None]] = []
+    if switch_minutes_before is not None:
+        attempts.append((start_delay_ms, switch_minutes_before))
+    attempts.append((start_delay_ms, None))
+
+    smaller_starts = [d for d in _DEMO_START_DELAY_CANDIDATES if d <= start_delay_ms]
+    if start_delay_ms not in smaller_starts:
+        smaller_starts.insert(0, start_delay_ms)
+    for sd in smaller_starts:
+        if switch_minutes_before is not None:
+            attempts.append((sd, switch_minutes_before))
+        attempts.append((sd, None))
+
+    seen: set[tuple[int, float | None]] = set()
+    for sd, switch_min in attempts:
+        key = (sd, switch_min)
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            schedule = build_schedule(
+                target=target,
+                start=start,
+                initial_delay_ms=sd,
+                target_final_delay_ms=final_delay_ms,
+                switch_minutes_before=switch_min,
+                timing_mode=timing_mode,
+                tz_key=tz_key,
+            )
+            return schedule, demo_minutes
+        except ValueError:
+            continue
+
+    demo_start, demo_final = best_delay_for_demo(
+        demo_minutes=demo_minutes,
+        target_final_delay_ms=final_delay_ms,
+    )
+    schedule = build_schedule(
+        target=target,
+        start=start,
+        initial_delay_ms=demo_start,
+        target_final_delay_ms=demo_final,
+        timing_mode=timing_mode,
+        tz_key=tz_key,
+    )
+    return schedule, demo_minutes

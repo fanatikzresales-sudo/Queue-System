@@ -216,6 +216,7 @@ function fireOSNotification(title, body) {
 
 const PM = (() => {
   const plans = {};   // id -> { name, plan, timers, countdownInterval, popupId }
+  const DROP_REMINDER_MINUTES = window.__DROP_REMINDER_MINUTES || 5;
 
   // ── popup helpers ──────────────────────────────────────────────────────────
 
@@ -357,7 +358,7 @@ const PM = (() => {
     _makePopup(_dropPopupId(id), `
       <div class="notif-header notif-header-urgent">
         <span class="notif-icon">⚡</span>
-        <span class="notif-title">Drop in 5 min — ${name}</span>
+        <span class="notif-title">Drop in ${DROP_REMINDER_MINUTES} min — ${name}</span>
         <button class="notif-close">✕</button>
       </div>
       <div class="notif-drop-body">
@@ -374,7 +375,7 @@ const PM = (() => {
 
     // Real OS notification — this is the critical "drop now" alert
     fireOSNotification(
-      `⚡ ${name} — Drop in 5 minutes!`,
+      `⚡ ${name} — Drop in ${DROP_REMINDER_MINUTES} minutes!`,
       `At ${plan.drop_time_display}, change your delay to ${plan.final_delay_label}. ` +
       `Next refresh hits ${plan.queue_time_display} exactly.`
     );
@@ -387,7 +388,7 @@ const PM = (() => {
     const now = Date.now();
     const timers = [];
 
-    const msUntilDropReminder = plan.drop_ts_ms - (5 * 60 * 1000) - now;
+    const msUntilDropReminder = plan.drop_ts_ms - (DROP_REMINDER_MINUTES * 60 * 1000) - now;
 
     if (msUntilDropReminder > 0) {
       timers.push(setTimeout(() => _showDropPopup(id, name, plan), msUntilDropReminder));
@@ -502,7 +503,8 @@ function presetCardHtml(p, i, extraClass = "") {
     <div class="preset-card ${extraClass}" data-idx="${i}"
          data-start-h="${p.start_h}" data-start-m="${p.start_m}" data-start-s="${p.start_s}"
          data-delay="${p.start_delay_ms}" data-final-delay="${p.final_delay_ms}"
-         data-drop-mode="${p.drop_mode || "long_drop"}">
+         data-drop-mode="${p.drop_mode || "long_drop"}"
+         data-switch-minutes="${p.switch_minutes_before || ""}">
 
       <div class="pc-head">
         <div>
@@ -515,6 +517,7 @@ function presetCardHtml(p, i, extraClass = "") {
       <div class="pc-tag-row">
         <span class="pc-tag">Start ${p.start_window_label}</span>
         <span class="pc-tag">Drop ${p.drop_minutes_label} before</span>
+        ${p.preset_category === "late_drop" ? '<span class="pc-tag">Late drop</span>' : ""}
       </div>
 
       <div class="pc-flow">
@@ -577,7 +580,13 @@ function wirePresetGrid(gridEl, plans) {
       applyPresetToCustom(p);
       document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
-      if (!demoModeEl.checked) runOptimize();
+      if (!demoModeEl.checked) {
+        runOptimize({
+          live: true,
+          final_delay_ms: p.final_delay_ms,
+          switch_minutes_before: p.switch_minutes_before,
+        });
+      }
 
       showNameInput({
         anchorEl: card,
@@ -590,7 +599,9 @@ function wirePresetGrid(gridEl, plans) {
       e.stopPropagation();
       const params = new URLSearchParams({
         timezone: timezoneEl.value,
+        start_delay: String(p.start_delay_ms),
         final_delay: String(p.final_delay_ms),
+        switch_minutes_before: String(p.switch_minutes_before),
         label: p.label,
         timing_mode: p.timing_mode || getTimingMode(),
       });
@@ -602,7 +613,13 @@ function wirePresetGrid(gridEl, plans) {
         applyPresetToCustom(p);
         document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
         card.classList.add("selected");
-        if (!demoModeEl.checked) runOptimize();
+        if (!demoModeEl.checked) {
+          runOptimize({
+            live: true,
+            final_delay_ms: p.final_delay_ms,
+            switch_minutes_before: p.switch_minutes_before,
+          });
+        }
       }
     });
   });
@@ -699,6 +716,21 @@ async function loadCompatibleStarts() {
     compatibleStartsPanel.hidden = false;
     compatibleStartsHint.textContent = err.message;
     compatibleStartsList.innerHTML = "";
+  }
+}
+
+async function syncCustomTimesToTimezone() {
+  try {
+    const res = await fetch(`/api/queue-defaults?timezone=${encodeURIComponent(timezoneEl.value)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed");
+    customDateEl.value = data.custom_date;
+    queueTimeEl.value = data.queue_time;
+    startTimeEl.value = data.start_time;
+    const hint = document.getElementById("queue_time_hint");
+    if (hint) hint.textContent = `(Walmart queue · ${data.timezone})`;
+  } catch (_) {
+    // Keep existing values if the request fails.
   }
 }
 
@@ -845,22 +877,27 @@ function renderResults(data) {
   ).join("");
 }
 
-async function runOptimize() {
+async function runOptimize(opts = {}) {
   optimizeBtn.disabled = true;
   optimizeBtn.textContent = "Optimizing…";
+  const useLive = Boolean(opts.live);
   try {
     const payload = {
         timezone: timezoneEl.value,
         start_time: startTimeEl.value,
         initial_delay_ms: parseInt(initialDelayEl.value, 10),
         demo: demoModeEl.checked,
-        custom_date: customDateEl.value || "",
+        live: useLive,
+        custom_date: useLive ? "" : (customDateEl.value || ""),
         queue_time_override: queueTimeEl.value || "",
         timing_mode: getTimingMode(),
         drop_mode: getDropPlanMode(),
       };
-    const targetFinal = getTargetFinalDelayPayload();
+    const targetFinal = opts.final_delay_ms ?? getTargetFinalDelayPayload();
     if (targetFinal) payload.target_final_delay_ms = targetFinal;
+    if (opts.switch_minutes_before != null) {
+      payload.switch_minutes_before = opts.switch_minutes_before;
+    }
 
     const res = await fetch("/api/optimize", {
       method: "POST",
@@ -885,6 +922,7 @@ delayPresetEl.addEventListener("change", () => {
 });
 
 timezoneEl.addEventListener("change", () => {
+  syncCustomTimesToTimezone();
   loadPresets();
   loadCompatibleStarts();
   resultsPanelEl.hidden = true;
@@ -933,12 +971,12 @@ customDateEl.value = nextWednesday();
 setDropPlanMode("last_min");
 populateTargetFinalDelaySelect();
 
-nextWedBtn.addEventListener("click", () => {
-  customDateEl.value = nextWednesday();
-  queueTimeEl.value = "20:00";
+nextWedBtn.addEventListener("click", async () => {
+  await syncCustomTimesToTimezone();
   loadCompatibleStarts();
 });
 
+syncCustomTimesToTimezone();
 loadPresets();
 loadCompatibleStarts();
 
@@ -954,10 +992,9 @@ function showUpdateBanner({ version, downloadUrl, canAutoApply }) {
   const textEl = banner.querySelector(".ub-text");
 
   if (canAutoApply) {
-    // Desktop app: new build already downloaded — just restart
     textEl.innerHTML =
-      `🔄 Update <strong>v${version}</strong> ready — <strong>close and reopen</strong> to update`;
-    link.textContent = "Close App Now";
+      `🔄 Update <strong>v${version}</strong> ready — close the app and it will reopen updated`;
+    link.textContent = "Close & Update Now";
     link.href = "#";
     link.onclick = (e) => {
       e.preventDefault();
