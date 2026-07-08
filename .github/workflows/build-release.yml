@@ -173,7 +173,7 @@ jobs:
     name: Create Release
     needs: [build-windows, build-mac, build-android]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: always() && startsWith(github.ref, 'refs/tags/') && needs.build-windows.result == 'success' && needs.build-mac.result == 'success'
 
     steps:
       - name: Download Windows artifact
@@ -189,6 +189,7 @@ jobs:
           path: release-files
 
       - name: Download Android artifact
+        if: needs.build-android.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: android-apk
@@ -201,24 +202,23 @@ jobs:
           body: |
             ## FR Queue Optimizer ${{ github.ref_name }}
 
+            ### What's new
+            - **Custom Start Time toggle:** Last-Min Drop vs Long Drop Delay
+            - **Last-min presets:** 1,500 / 2,000 / 3,000 ms final delays (2–5 min before queue)
+            - **Compatible start times** when you pick a preset or target final delay
+            - More drop delay presets for Instant and Deferred switch modes
+
             ### Download
             | Platform | File |
             |----------|------|
             | **Windows** | `FRQueueOptimizer.exe` — double-click to open |
             | **Mac** | `FRQueueOptimizer-Mac.zip` — unzip, drag to Applications |
-            | **Android** | `FRQueueOptimizer-Android.apk` or `.zip` — install on phone (enable unknown sources) |
-
-            ### Android install
-            1. Download `FRQueueOptimizer-Android.apk` (or unzip `FRQueueOptimizer-Android.zip` first)
-            2. Open it on your Android device or emulator (LDPlayer, BlueStacks, etc.)
-            3. Allow install from unknown sources if prompted
-            4. Open the app → enable notifications → tap **Test alert**
+            | **Android** | `FRQueueOptimizer-Android.apk` (when available) |
 
             ### Auto-update
             When you open the app, it checks for updates automatically.
             If a newer version is available, it downloads in the background.
             **Close the app** when the update banner appears — it will reopen on the new version automatically.
-            If that fails, download the latest build manually from the releases page.
 
             ### First time?
             - **Windows SmartScreen:** Click "More info" → "Run anyway"
@@ -228,5 +228,6 @@ jobs:
             release-files/FRQueueOptimizer-Mac.zip
             release-files/FRQueueOptimizer-Android.apk
             release-files/FRQueueOptimizer-Android.zip
+          fail_on_unmatched_files: false
           draft: false
           prerelease: false
