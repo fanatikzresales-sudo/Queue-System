@@ -23,10 +23,13 @@ from scheduler import (
     best_delay_for_demo,
     build_schedule,
     create_demo_target,
+    find_compatible_custom_starts,
     get_timezone,
     next_walmart_queue_time,
+    parse_drop_plan_mode,
     parse_timing_mode,
     preset_schedules,
+    preset_schedules_late_drop,
     recommended_start_delays,
     schedule_to_dict,
     schedule_to_live_demo,
@@ -190,6 +193,72 @@ def demo_live_api():
     )
 
 
+def _plan_to_json(p):
+    return {
+        "label": p.label,
+        "description": p.description,
+        "minutes_early": p.minutes_early,
+        "start_window_label": p.start_window_label,
+        "start_delay_ms": p.start_delay_ms,
+        "start_delay_label": p.start_delay_label,
+        "start_time_display": p.start_time_display,
+        "drop_time_display": p.drop_time_display,
+        "drop_minutes_before": p.drop_minutes_before,
+        "drop_minutes_label": p.drop_minutes_label,
+        "final_delay_ms": p.final_delay_ms,
+        "final_delay_label": p.final_delay_label,
+        "queue_time_display": p.queue_time_display,
+        "refreshes_phase1": p.refreshes_phase1,
+        "refreshes_phase2": p.refreshes_phase2,
+        "verified": p.verified,
+        "start_h": p.start_h,
+        "start_m": p.start_m,
+        "start_s": p.start_s,
+        "start_ts_ms": p.start_ts_ms,
+        "drop_ts_ms": p.drop_ts_ms,
+        "queue_ts_ms": p.queue_ts_ms,
+        "timing_mode": p.timing_mode,
+        "effective_switch_ts_ms": p.effective_switch_ts_ms,
+        "effective_switch_time_display": p.effective_switch_time_display,
+        "preset_category": p.preset_category,
+        "drop_mode": p.drop_mode,
+    }
+
+
+def _resolve_optimize_target(data, tz_key):
+    demo = bool(data.get("demo", False))
+    custom_date = (data.get("custom_date") or "").strip()
+    queue_time_override = (data.get("queue_time_override") or "").strip()
+
+    if demo:
+        return create_demo_target(minutes_from_now=5.0, tz_key=tz_key), "demo"
+
+    if custom_date:
+        tz = get_timezone(tz_key)
+        central = get_timezone("CDT")
+        try:
+            date_parsed = datetime.strptime(custom_date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Invalid date. Use YYYY-MM-DD format.")
+
+        if queue_time_override:
+            try:
+                parts = queue_time_override.split(":")
+                q_hour, q_min = int(parts[0]), int(parts[1])
+                q_second = int(parts[2]) if len(parts) > 2 else 0
+            except (ValueError, IndexError):
+                raise ValueError("Invalid queue time.")
+        else:
+            q_hour, q_min, q_second = DEFAULT_QUEUE_HOUR, 0, 0
+
+        target = date_parsed.replace(
+            hour=q_hour, minute=q_min, second=q_second, microsecond=0, tzinfo=central
+        )
+        return target, "custom"
+
+    return next_walmart_queue_time(tz_key=tz_key), "live"
+
+
 @app.route("/")
 def index():
     return render_template(
@@ -215,42 +284,15 @@ def preset_schedules_api():
     target = next_walmart_queue_time(tz_key=tz_key)
     target_local = target.astimezone(tz)          # convert to display timezone
     plans = preset_schedules(target=target, tz_key=tz_key, timing_mode=timing_mode)
+    late_plans = preset_schedules_late_drop(target=target, tz_key=tz_key, timing_mode=timing_mode)
     return jsonify(
         {
             "timing_mode": timing_mode.value,
             "queue_live": target_local.strftime("%I:%M %p").lstrip("0")
             + f" {target_local.tzname()} — Wednesday {target_local.strftime('%B %d, %Y')}",
-            "queue_ts_ms": int(target.timestamp() * 1000),  # for frontend auto-refresh
-            "plans": [
-                {
-                    "label": p.label,
-                    "description": p.description,
-                    "minutes_early": p.minutes_early,
-                    "start_window_label": p.start_window_label,
-                    "start_delay_ms": p.start_delay_ms,
-                    "start_delay_label": p.start_delay_label,
-                    "start_time_display": p.start_time_display,
-                    "drop_time_display": p.drop_time_display,
-                    "drop_minutes_before": p.drop_minutes_before,
-                    "drop_minutes_label": p.drop_minutes_label,
-                    "final_delay_ms": p.final_delay_ms,
-                    "final_delay_label": p.final_delay_label,
-                    "queue_time_display": p.queue_time_display,
-                    "refreshes_phase1": p.refreshes_phase1,
-                    "refreshes_phase2": p.refreshes_phase2,
-                    "verified": p.verified,
-                    "start_h": p.start_h,
-                    "start_m": p.start_m,
-                    "start_s": p.start_s,
-                    "start_ts_ms": p.start_ts_ms,
-                    "drop_ts_ms": p.drop_ts_ms,
-                    "queue_ts_ms": p.queue_ts_ms,
-                    "timing_mode": p.timing_mode,
-                    "effective_switch_ts_ms": p.effective_switch_ts_ms,
-                    "effective_switch_time_display": p.effective_switch_time_display,
-                }
-                for p in plans
-            ],
+            "queue_ts_ms": int(target.timestamp() * 1000),
+            "plans": [_plan_to_json(p) for p in plans],
+            "late_drop_plans": [_plan_to_json(p) for p in late_plans],
         }
     )
 
@@ -259,58 +301,130 @@ def preset_schedules_api():
 def optimize():
     data = request.get_json(force=True)
     tz_key = (data.get("timezone") or "CDT").upper()
-    demo = bool(data.get("demo", False))
     start_time = data.get("start_time", "")
     initial_delay_ms = int(data.get("initial_delay_ms", 60000))
-    custom_date = data.get("custom_date", "").strip()          # YYYY-MM-DD
-    queue_time_override = data.get("queue_time_override", "").strip()  # HH:MM
+    target_final_raw = data.get("target_final_delay_ms")
 
     try:
         timing_mode = parse_timing_mode(data.get("timing_mode"))
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
+    try:
+        drop_mode = parse_drop_plan_mode(data.get("drop_mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
     if tz_key not in TIMEZONES:
         return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
 
+    target_final_delay_ms = None
+    if target_final_raw not in (None, "", "auto"):
+        try:
+            target_final_delay_ms = int(target_final_raw)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid target_final_delay_ms."}), 400
+
     try:
-        if demo:
-            target = create_demo_target(minutes_from_now=5.0, tz_key=tz_key)
-        elif custom_date:
-            # Build a target on the user's chosen date at their chosen queue time
-            tz = get_timezone(tz_key)
-            central = get_timezone("CDT")
-            try:
-                date_parsed = datetime.strptime(custom_date, "%Y-%m-%d")
-            except ValueError:
-                return jsonify({"error": "Invalid date. Use YYYY-MM-DD format."}), 400
-
-            if queue_time_override:
-                try:
-                    parts = queue_time_override.split(":")
-                    q_hour, q_min = int(parts[0]), int(parts[1])
-                except (ValueError, IndexError):
-                    return jsonify({"error": "Invalid queue time."}), 400
-            else:
-                q_hour, q_min = DEFAULT_QUEUE_HOUR, 0
-
-            # Build target in Central Time (Walmart's timezone) then localise for display
-            target = date_parsed.replace(
-                hour=q_hour, minute=q_min, second=0, microsecond=0, tzinfo=central
-            )
-        else:
-            target = next_walmart_queue_time(tz_key=tz_key)
-
-        start = _resolve_start(start_time, target, tz_key, demo=demo)
+        target, mode = _resolve_optimize_target(data, tz_key)
+        start = _resolve_start(start_time, target, tz_key, demo=bool(data.get("demo", False)))
         schedule = build_schedule(
             target=target,
             start=start,
             tz_key=tz_key,
             initial_delay_ms=initial_delay_ms,
             timing_mode=timing_mode,
+            target_final_delay_ms=target_final_delay_ms,
+            drop_mode=drop_mode,
         )
-        mode = "demo" if demo else ("custom" if custom_date else "live")
-        return jsonify({"mode": mode, "timing_mode": timing_mode.value, **schedule_to_dict(schedule)})
+        return jsonify({
+            "mode": mode,
+            "timing_mode": timing_mode.value,
+            "drop_mode": drop_mode.value,
+            "target_final_delay_ms": schedule.steps[-1].delay_ms if len(schedule.steps) > 1 else None,
+            **schedule_to_dict(schedule),
+        })
+    except (ValueError, TypeError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/compatible-starts", methods=["POST"])
+def compatible_starts_api():
+    data = request.get_json(force=True)
+    tz_key = (data.get("timezone") or "CDT").upper()
+    start_time = data.get("start_time", "")
+    target_final_delay_ms = int(data.get("target_final_delay_ms", 0))
+
+    try:
+        timing_mode = parse_timing_mode(data.get("timing_mode"))
+        drop_mode = parse_drop_plan_mode(data.get("drop_mode"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    if tz_key not in TIMEZONES:
+        return jsonify({"error": f"Unknown timezone. Choose: {', '.join(TIMEZONES)}"}), 400
+    if target_final_delay_ms <= 0:
+        return jsonify({"error": "target_final_delay_ms is required."}), 400
+
+    try:
+        target, _mode = _resolve_optimize_target(data, tz_key)
+        options = find_compatible_custom_starts(
+            target=target,
+            tz_key=tz_key,
+            target_final_delay_ms=target_final_delay_ms,
+            timing_mode=timing_mode,
+            drop_mode=drop_mode,
+        )
+        selected = None
+        if start_time:
+            try:
+                selected_start = _resolve_start(
+                    start_time, target, tz_key, demo=bool(data.get("demo", False))
+                )
+                sel_local = selected_start.astimezone(get_timezone(tz_key))
+                for opt in options:
+                    if (
+                        opt.start_h == sel_local.hour
+                        and opt.start_m == sel_local.minute
+                        and opt.start_s == sel_local.second
+                    ):
+                        selected = {
+                            "start_h": opt.start_h,
+                            "start_m": opt.start_m,
+                            "start_s": opt.start_s,
+                            "start_delay_ms": opt.start_delay_ms,
+                            "start_time_display": opt.start_time_display,
+                            "drop_minutes_label": opt.drop_minutes_label,
+                            "final_delay_label": opt.final_delay_label,
+                        }
+                        break
+            except ValueError:
+                selected = None
+
+        return jsonify({
+            "target_final_delay_ms": target_final_delay_ms,
+            "drop_mode": drop_mode.value,
+            "options": [
+                {
+                    "start_time_display": o.start_time_display,
+                    "start_h": o.start_h,
+                    "start_m": o.start_m,
+                    "start_s": o.start_s,
+                    "start_window_label": o.start_window_label,
+                    "minutes_early": o.minutes_early,
+                    "start_delay_ms": o.start_delay_ms,
+                    "start_delay_label": o.start_delay_label,
+                    "drop_minutes_label": o.drop_minutes_label,
+                    "final_delay_ms": o.final_delay_ms,
+                    "final_delay_label": o.final_delay_label,
+                    "switch_minutes_before": o.switch_minutes_before,
+                    "refreshes_phase1": o.refreshes_phase1,
+                    "refreshes_phase2": o.refreshes_phase2,
+                }
+                for o in options
+            ],
+            "selected_match": selected,
+        })
     except (ValueError, TypeError) as exc:
         return jsonify({"error": str(exc)}), 400
 

@@ -63,6 +63,7 @@
           <h2>Common Start Windows</h2>
           <p class="hint" id="queue_live_label">Loading schedules…</p>
           <p class="hint timing-mode-hint" id="timing_mode_hint"></p>
+          <p class="hint preset-mode-label">Long drop delays <small>(up to ~10 min before queue · 1,000–5,000 ms final)</small></p>
         </div>
         <div class="timing-mode-toggle" role="group" aria-label="Bot delay switch timing">
           <button type="button" class="timing-mode-btn active" data-mode="instant">Instant Switch</button>
@@ -72,13 +73,30 @@
       <div id="preset_grid" class="preset-grid">
         <div class="preset-loading">Loading plans…</div>
       </div>
+      <h3 class="preset-subheading">Last-Min Drops <small>(2–5 min before queue · 800–3,000 ms final)</small></h3>
+      <div id="late_drop_grid" class="preset-grid preset-grid-late">
+        <div class="preset-loading">Loading last-min plans…</div>
+      </div>
     </section>
 
     <!-- Custom optimizer -->
     <section class="panel custom-section">
-      <h2>Custom Start Time</h2>
-      <p class="hint">Set your own date, start time, and delay. Works for any day — great for testing.</p>
+      <div class="custom-section-header">
+        <div>
+          <h2>Custom Start Time</h2>
+          <p class="hint">Pick last-min or long drop mode, then set your date, start time, and delay.</p>
+        </div>
+        <div class="drop-plan-toggle" role="group" aria-label="Drop plan type">
+          <button type="button" class="drop-plan-btn active" data-drop-plan="last_min">Last-Min Drop</button>
+          <button type="button" class="drop-plan-btn" data-drop-plan="long_drop">Long Drop Delay</button>
+        </div>
+      </div>
+      <p class="hint drop-plan-hint" id="drop_plan_hint">Last-min: drop 2–5 min before queue with tight final delays (1,500–3,000 ms).</p>
       <div class="custom-row">
+        <label class="field">
+          <span>Target Final Delay</span>
+          <select id="target_final_delay_ms"></select>
+        </label>
         <label class="field">
           <span>Date <small>(defaults to next Wednesday)</small></span>
           <div class="date-row">
@@ -107,6 +125,11 @@
           </div>
         </label>
         <button type="button" id="optimize_btn" class="primary">Queue Optimize</button>
+      </div>
+      <div id="compatible_starts_panel" class="compatible-starts-panel" hidden>
+        <h3>Compatible start times for selected final delay</h3>
+        <p class="hint" id="compatible_starts_hint">Select a preset or pick a target final delay above.</p>
+        <ul id="compatible_starts_list" class="compatible-starts-list"></ul>
       </div>
     </section>
 

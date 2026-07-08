@@ -6,13 +6,16 @@ from zoneinfo import ZoneInfo
 
 from scheduler import (
     CENTRAL,
+    DropPlanMode,
     TimingMode,
     build_schedule,
     create_demo_target,
     find_aligned_delay,
+    find_compatible_custom_starts,
     get_timezone,
     next_walmart_queue_time,
     preset_schedules,
+    preset_schedules_late_drop,
     recommended_start_delays,
     schedule_to_dict,
 )
@@ -187,6 +190,55 @@ class TestTimingMode(unittest.TestCase):
             self.assertIsNotNone(deferred)
             self.assertLess(deferred.drop_ts_ms, instant.drop_ts_ms)
             self.assertEqual(deferred.effective_switch_ts_ms, instant.drop_ts_ms)
+
+
+class TestDropPlanModes(unittest.TestCase):
+    def _target(self) -> datetime:
+        return datetime(2026, 7, 8, 20, 0, 0, tzinfo=CT)
+
+    def test_last_min_preset_produces_tight_final_delay(self):
+        target = self._target()
+        plans = preset_schedules_late_drop(target=target, timing_mode=TimingMode.INSTANT)
+        self.assertTrue(plans)
+        for plan in plans:
+            self.assertLessEqual(plan.final_delay_ms, 3_000)
+            self.assertLessEqual(plan.drop_minutes_before, 6.0)
+            self.assertEqual(plan.preset_category, "late_drop")
+            self.assertEqual(plan.drop_mode, DropPlanMode.LAST_MIN.value)
+
+    def test_custom_optimize_pins_1500_last_min(self):
+        target = self._target()
+        start = target - timedelta(minutes=45)
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            target_final_delay_ms=1_500,
+            drop_mode=DropPlanMode.LAST_MIN,
+        )
+        self.assertTrue(schedule.hits_target_exactly)
+        self.assertEqual(schedule.steps[1].delay_ms, 1_500)
+
+    def test_compatible_starts_for_1500(self):
+        target = self._target()
+        options = find_compatible_custom_starts(
+            target=target,
+            target_final_delay_ms=1_500,
+            drop_mode=DropPlanMode.LAST_MIN,
+        )
+        self.assertTrue(len(options) >= 1)
+        self.assertTrue(all(o.final_delay_ms == 1_500 for o in options))
+
+    def test_long_drop_auto_still_hits_target(self):
+        target = self._target()
+        start = target - timedelta(hours=1)
+        schedule = build_schedule(
+            target=target,
+            start=start,
+            initial_delay_ms=60_000,
+            drop_mode=DropPlanMode.LONG_DROP,
+        )
+        self.assertTrue(schedule.hits_target_exactly)
 
 
 if __name__ == "__main__":

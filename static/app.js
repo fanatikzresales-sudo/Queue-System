@@ -10,6 +10,14 @@ const delayPresetEl    = document.getElementById("delay_preset");
 const optimizeBtn      = document.getElementById("optimize_btn");
 const queueLiveLabel   = document.getElementById("queue_live_label");
 const presetGridEl     = document.getElementById("preset_grid");
+const lateDropGridEl   = document.getElementById("late_drop_grid");
+const targetFinalDelayEl = document.getElementById("target_final_delay_ms");
+const dropPlanHintEl   = document.getElementById("drop_plan_hint");
+const dropPlanBtns     = document.querySelectorAll(".drop-plan-btn");
+const compatibleStartsPanel = document.getElementById("compatible_starts_panel");
+const compatibleStartsHint  = document.getElementById("compatible_starts_hint");
+const compatibleStartsList  = document.getElementById("compatible_starts_list");
+const customSectionEl    = document.querySelector(".custom-section");
 const resultsPanelEl   = document.getElementById("results_panel");
 const verificationEl   = document.getElementById("verification");
 const summaryEl        = document.getElementById("summary");
@@ -28,7 +36,32 @@ const TIMING_MODE_HINTS = {
   deferred: "Drop one cycle early — bot finishes its last slow refresh first.",
 };
 
+const DROP_PLAN_HINTS = {
+  last_min: "Last-min: drop 2–5 min before queue with tight final delays (800–3,000 ms).",
+  long_drop: "Long drop: drop up to ~10 min before queue with proxy-friendly delays (1,000–5,000 ms).",
+};
+
+const FINAL_DELAY_OPTIONS = {
+  last_min: [
+    { value: "1500", label: "1,500 ms (1.5 sec) — Pokemon-precision" },
+    { value: "2000", label: "2,000 ms (2 sec) — high refresh" },
+    { value: "3000", label: "3,000 ms (3 sec) — strong near-live" },
+    { value: "1000", label: "1,000 ms (1 sec) — ultra-tight" },
+    { value: "800", label: "800 ms — maximum speed" },
+  ],
+  long_drop: [
+    { value: "auto", label: "Auto — best fit for your start time" },
+    { value: "5000", label: "5,000 ms (5 sec) — most proxy-safe" },
+    { value: "3000", label: "3,000 ms (3 sec) — balanced" },
+    { value: "2000", label: "2,000 ms (2 sec)" },
+    { value: "1500", label: "1,500 ms (1.5 sec)" },
+    { value: "1000", label: "1,000 ms (1 sec)" },
+  ],
+};
+
 let currentTimingMode = "instant";
+let currentDropPlan = "last_min";
+let selectedFinalDelayMs = 1500;
 
 function pad2(n) { return String(n).padStart(2, "0"); }
 
@@ -70,11 +103,70 @@ function timingModeLabel(mode) {
   return mode === "deferred" ? "Deferred Switch" : "Instant Switch";
 }
 
+function dropPlanLabel(mode) {
+  return mode === "last_min" ? "Last-Min Drop" : "Long Drop Delay";
+}
+
+function getDropPlanMode() {
+  return currentDropPlan;
+}
+
+function setDropPlanMode(mode) {
+  currentDropPlan = mode === "long_drop" ? "long_drop" : "last_min";
+  dropPlanBtns.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.dropPlan === currentDropPlan);
+  });
+  if (dropPlanHintEl) {
+    dropPlanHintEl.textContent = DROP_PLAN_HINTS[currentDropPlan];
+  }
+  populateTargetFinalDelaySelect();
+  loadCompatibleStarts();
+}
+
+function populateTargetFinalDelaySelect() {
+  if (!targetFinalDelayEl) return;
+  const options = FINAL_DELAY_OPTIONS[currentDropPlan] || FINAL_DELAY_OPTIONS.last_min;
+  targetFinalDelayEl.innerHTML = options.map(o =>
+    `<option value="${o.value}">${o.label}</option>`
+  ).join("");
+  const preferred = currentDropPlan === "last_min" ? "1500" : "auto";
+  targetFinalDelayEl.value = String(selectedFinalDelayMs || preferred);
+  if (targetFinalDelayEl.value !== String(selectedFinalDelayMs) &&
+      options.some(o => o.value === String(selectedFinalDelayMs))) {
+    targetFinalDelayEl.value = String(selectedFinalDelayMs);
+  } else if (!options.some(o => o.value === targetFinalDelayEl.value)) {
+    targetFinalDelayEl.value = preferred;
+  }
+}
+
+function getTargetFinalDelayPayload() {
+  if (!targetFinalDelayEl) return null;
+  const val = targetFinalDelayEl.value;
+  return val === "auto" ? null : parseInt(val, 10);
+}
+
+dropPlanBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.dropPlan === currentDropPlan) return;
+    setDropPlanMode(btn.dataset.dropPlan);
+    resultsPanelEl.hidden = true;
+  });
+});
+
+if (targetFinalDelayEl) {
+  targetFinalDelayEl.addEventListener("change", () => {
+    const val = targetFinalDelayEl.value;
+    selectedFinalDelayMs = val === "auto" ? null : parseInt(val, 10);
+    loadCompatibleStarts();
+  });
+}
+
 timingModeBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.mode === currentTimingMode) return;
     setTimingMode(btn.dataset.mode);
     loadPresets();
+    loadCompatibleStarts();
     resultsPanelEl.hidden = true;
   });
 });
@@ -405,19 +497,12 @@ function showNameInput({ anchorEl, defaultName: defName, onActivate }) {
   });
 }
 
-function renderPresets(data) {
-  queueLiveLabel.textContent = `Queue goes live: ${data.queue_live}`;
-  if (data.timing_mode) setTimingMode(data.timing_mode);
-
-  if (!data.plans.length) {
-    presetGridEl.innerHTML = '<p class="placeholder">No plans available.</p>';
-    return;
-  }
-
-  presetGridEl.innerHTML = data.plans.map((p, i) => `
-    <div class="preset-card" data-idx="${i}"
+function presetCardHtml(p, i, extraClass = "") {
+  return `
+    <div class="preset-card ${extraClass}" data-idx="${i}"
          data-start-h="${p.start_h}" data-start-m="${p.start_m}" data-start-s="${p.start_s}"
-         data-delay="${p.start_delay_ms}">
+         data-delay="${p.start_delay_ms}" data-final-delay="${p.final_delay_ms}"
+         data-drop-mode="${p.drop_mode || "long_drop"}">
 
       <div class="pc-head">
         <div>
@@ -464,23 +549,36 @@ function renderPresets(data) {
         <button class="pc-demo-btn"   type="button">▶ Watch Demo</button>
       </div>
     </div>
-  `).join("");
+  `;
+}
 
-  presetGridEl.querySelectorAll(".preset-card").forEach(card => {
+function applyPresetToCustom(p) {
+  startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
+  initialDelayEl.value = p.start_delay_ms;
+  selectedFinalDelayMs = p.final_delay_ms;
+  if (p.drop_mode) setDropPlanMode(p.drop_mode);
+  if (targetFinalDelayEl) {
+    populateTargetFinalDelaySelect();
+    targetFinalDelayEl.value = String(p.final_delay_ms);
+  }
+  loadCompatibleStarts();
+  customSectionEl && customSectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function wirePresetGrid(gridEl, plans) {
+  if (!gridEl) return;
+  gridEl.querySelectorAll(".preset-card").forEach(card => {
     const idx = parseInt(card.dataset.idx, 10);
-    const p = data.plans[idx];
+    const p = plans[idx];
+    if (!p) return;
 
     card.querySelector(".pc-select-btn").addEventListener("click", e => {
       e.stopPropagation();
-      // Fill form first
-      startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
-      initialDelayEl.value = p.start_delay_ms;
-      presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
+      applyPresetToCustom(p);
+      document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
       card.classList.add("selected");
       if (!demoModeEl.checked) runOptimize();
 
-      // Show name input anchored to this card's button row
-      const btnRow = card.querySelector(".pc-btn-row");
       showNameInput({
         anchorEl: card,
         defaultName: defaultName(),
@@ -501,9 +599,8 @@ function renderPresets(data) {
 
     card.addEventListener("click", e => {
       if (!e.target.closest("button") && !e.target.closest(".name-overlay")) {
-        startTimeEl.value = `${pad2(p.start_h)}:${pad2(p.start_m)}:${pad2(p.start_s)}`;
-        initialDelayEl.value = p.start_delay_ms;
-        presetGridEl.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
+        applyPresetToCustom(p);
+        document.querySelectorAll(".preset-card").forEach(c => c.classList.remove("selected"));
         card.classList.add("selected");
         if (!demoModeEl.checked) runOptimize();
       }
@@ -511,8 +608,103 @@ function renderPresets(data) {
   });
 }
 
+function renderPresets(data) {
+  queueLiveLabel.textContent = `Queue goes live: ${data.queue_live}`;
+  if (data.timing_mode) setTimingMode(data.timing_mode);
+
+  const longPlans = data.plans || [];
+  const latePlans = data.late_drop_plans || [];
+
+  if (!longPlans.length && !latePlans.length) {
+    presetGridEl.innerHTML = '<p class="placeholder">No plans available.</p>';
+    if (lateDropGridEl) lateDropGridEl.innerHTML = "";
+    return;
+  }
+
+  presetGridEl.innerHTML = longPlans.length
+    ? longPlans.map((p, i) => presetCardHtml(p, i)).join("")
+    : '<p class="placeholder">No long-drop plans for this mode.</p>';
+
+  if (lateDropGridEl) {
+    lateDropGridEl.innerHTML = latePlans.length
+      ? latePlans.map((p, i) => presetCardHtml(p, i, "late-drop-card")).join("")
+      : '<p class="placeholder">No last-min plans for this mode.</p>';
+  }
+
+  wirePresetGrid(presetGridEl, longPlans);
+  wirePresetGrid(lateDropGridEl, latePlans);
+}
+
+async function loadCompatibleStarts() {
+  if (!compatibleStartsPanel || !compatibleStartsList) return;
+
+  const finalMs = getTargetFinalDelayPayload();
+  if (!finalMs) {
+    compatibleStartsPanel.hidden = true;
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/compatible-starts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        timezone: timezoneEl.value,
+        start_time: startTimeEl.value,
+        demo: demoModeEl.checked,
+        custom_date: customDateEl.value || "",
+        queue_time_override: queueTimeEl.value || "",
+        timing_mode: getTimingMode(),
+        drop_mode: getDropPlanMode(),
+        target_final_delay_ms: finalMs,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed");
+
+    compatibleStartsPanel.hidden = false;
+    compatibleStartsHint.textContent =
+      `${data.options.length} start time(s) work with ${formatMs(finalMs)} final delay (${dropPlanLabel(data.drop_mode)}). Tap Use to apply.`;
+
+    if (!data.options.length) {
+      compatibleStartsList.innerHTML =
+        '<li class="placeholder">No compatible starts — try another final delay or earlier queue date.</li>';
+      return;
+    }
+
+    const currentStart = startTimeEl.value;
+    compatibleStartsList.innerHTML = data.options.map(opt => {
+      const optStart = `${pad2(opt.start_h)}:${pad2(opt.start_m)}:${pad2(opt.start_s)}`;
+      const isSelected = currentStart === optStart && parseInt(initialDelayEl.value, 10) === opt.start_delay_ms;
+      return `
+        <li class="${isSelected ? "selected" : ""}">
+          <strong>${opt.start_time_display}</strong>
+          <span>${opt.start_window_label}</span>
+          <span>Start ${opt.start_delay_label}</span>
+          <span>Drop ${opt.drop_minutes_label}</span>
+          <span>Final ${opt.final_delay_label}</span>
+          <button type="button" data-start="${optStart}" data-delay="${opt.start_delay_ms}">Use</button>
+        </li>`;
+    }).join("");
+
+    compatibleStartsList.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        startTimeEl.value = btn.dataset.start;
+        initialDelayEl.value = btn.dataset.delay;
+        loadCompatibleStarts();
+        if (!demoModeEl.checked) runOptimize();
+      });
+    });
+  } catch (err) {
+    compatibleStartsPanel.hidden = false;
+    compatibleStartsHint.textContent = err.message;
+    compatibleStartsList.innerHTML = "";
+  }
+}
+
 async function loadPresets() {
   presetGridEl.innerHTML = '<div class="preset-loading">Computing schedules…</div>';
+  if (lateDropGridEl) lateDropGridEl.innerHTML = '<div class="preset-loading">Computing last-min plans…</div>';
   try {
     const params = new URLSearchParams({
       timezone: timezoneEl.value,
@@ -563,6 +755,8 @@ function renderResults(data) {
 
   summaryEl.innerHTML = `
     <div><span>Schedule</span><span>${data.mode === "demo" ? "Demo test" : data.mode === "custom" ? "Custom date" : "Live · Wednesday 8 PM"}</span></div>
+    <div><span>Drop plan</span><span>${dropPlanLabel(data.drop_mode || getDropPlanMode())}</span></div>
+    <div><span>Final delay</span><span>${data.final_delay_ms ? formatMs(data.final_delay_ms) : "Auto"}</span></div>
     <div><span>Timing</span><span>${timingModeLabel(data.timing_mode || "instant")}</span></div>
     <div><span>Timezone</span><span>${data.timezone}</span></div>
     <div><span>Queue live</span><span>${data.queue_live}</span></div>
@@ -594,9 +788,9 @@ function renderResults(data) {
             ? `<small class="pc-effective-switch">Final delay active at ${s2.effective_switch_at}</small>`
             : ""}
           <small>${s2.refreshes_until_next} refreshes → queue live</small>
-        </div>
-        <div class="custom-alert-area" id="custom-alert-area">
-          <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+          <div class="custom-alert-area" id="custom-alert-area">
+            <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+          </div>
         </div>
       </div>
     `;
@@ -620,7 +814,7 @@ function renderResults(data) {
           queue_time_display: data.queue_live,
           start_ts_ms: s1.at_ts_ms,
           drop_ts_ms: s2.at_ts_ms,
-          queue_ts_ms: data.drop_schedule.at(-1)?.at_ts_ms || 0,
+          queue_ts_ms: data.queue_ts_ms || data.drop_schedule.at(-1)?.at_ts_ms || 0,
           timing_mode: data.timing_mode || "instant",
           effective_switch_time_display: s2.effective_switch_at || s2.at,
         };
@@ -655,10 +849,7 @@ async function runOptimize() {
   optimizeBtn.disabled = true;
   optimizeBtn.textContent = "Optimizing…";
   try {
-    const res = await fetch("/api/optimize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const payload = {
         timezone: timezoneEl.value,
         start_time: startTimeEl.value,
         initial_delay_ms: parseInt(initialDelayEl.value, 10),
@@ -666,7 +857,15 @@ async function runOptimize() {
         custom_date: customDateEl.value || "",
         queue_time_override: queueTimeEl.value || "",
         timing_mode: getTimingMode(),
-      }),
+        drop_mode: getDropPlanMode(),
+      };
+    const targetFinal = getTargetFinalDelayPayload();
+    if (targetFinal) payload.target_final_delay_ms = targetFinal;
+
+    const res = await fetch("/api/optimize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
@@ -687,7 +886,13 @@ delayPresetEl.addEventListener("change", () => {
 
 timezoneEl.addEventListener("change", () => {
   loadPresets();
+  loadCompatibleStarts();
   resultsPanelEl.hidden = true;
+});
+
+[startTimeEl, customDateEl, queueTimeEl, initialDelayEl].forEach(el => {
+  if (!el) return;
+  el.addEventListener("change", () => loadCompatibleStarts());
 });
 
 optimizeBtn.addEventListener("click", () => {
@@ -725,12 +930,17 @@ function nextWednesday() {
 
 customDateEl.value = nextWednesday();
 
+setDropPlanMode("last_min");
+populateTargetFinalDelaySelect();
+
 nextWedBtn.addEventListener("click", () => {
   customDateEl.value = nextWednesday();
   queueTimeEl.value = "20:00";
+  loadCompatibleStarts();
 });
 
 loadPresets();
+loadCompatibleStarts();
 
 // ── Update checking ─────────────────────────────────────────────────────────
 // Desktop app: polls the pywebview bridge; when the new build finishes
