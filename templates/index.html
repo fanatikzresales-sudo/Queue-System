@@ -97,6 +97,16 @@
           <span>Target Final Delay</span>
           <select id="target_final_delay_ms"></select>
         </label>
+        <label class="field" id="drop_window_field">
+          <span>Drop Window <small>(last-min only)</small></span>
+          <select id="drop_window_before">
+            <option value="">Any (2–5 min before queue)</option>
+            <option value="2" selected>2 min before queue</option>
+            <option value="3">3 min before queue</option>
+            <option value="4">4 min before queue</option>
+            <option value="5">5 min before queue</option>
+          </select>
+        </label>
         <label class="field">
           <span>Date <small>(defaults to next Wednesday)</small></span>
           <div class="date-row">

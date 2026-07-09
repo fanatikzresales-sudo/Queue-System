@@ -255,11 +255,35 @@ class TestDropPlanModes(unittest.TestCase):
         self.assertEqual(schedule.steps[1].delay_ms, preset.final_delay_ms)
         self.assertTrue(schedule.hits_target_exactly)
 
+    def test_compatible_starts_2min_before_1500(self):
+        target = self._target()
+        options = find_compatible_custom_starts(
+            target=target,
+            target_final_delay_ms=1_500,
+            drop_mode=DropPlanMode.LAST_MIN,
+            switch_minutes_before=2,
+        )
+        self.assertTrue(len(options) >= 1)
+        self.assertTrue(all(o.final_delay_ms == 1_500 for o in options))
+        self.assertTrue(all(1.5 <= o.switch_minutes_before <= 2.5 for o in options))
+
     def test_late_drop_presets_exist(self):
         target = self._target()
         plans = preset_schedules_late_drop(target=target, timing_mode=TimingMode.INSTANT)
-        window_plans = [p for p in plans if "min before" in p.label]
+        window_plans = [p for p in plans if "Drop 2 min before" in p.label]
         self.assertGreaterEqual(len(window_plans), 4)
+        labels = {p.label for p in window_plans}
+        self.assertIn("Drop 2 min before · 2,000 ms", labels)
+        self.assertIn("Drop 2 min before · 3,000 ms", labels)
+        for plan in window_plans:
+            self.assertLessEqual(plan.switch_minutes_before, 2.5)
+            self.assertGreaterEqual(plan.switch_minutes_before, 1.5)
+
+    def test_late_drop_presets_exist_all_windows(self):
+        target = self._target()
+        plans = preset_schedules_late_drop(target=target, timing_mode=TimingMode.INSTANT)
+        window_plans = [p for p in plans if "min before" in p.label]
+        self.assertGreaterEqual(len(window_plans), 6)
         for plan in window_plans:
             self.assertLessEqual(plan.switch_minutes_before, 7)
             self.assertGreaterEqual(plan.switch_minutes_before, 1.5)

@@ -431,6 +431,7 @@ def compatible_starts_api():
             target_final_delay_ms=target_final_delay_ms,
             timing_mode=timing_mode,
             drop_mode=drop_mode,
+            switch_minutes_before=_parse_optional_float(data.get("switch_minutes_before")),
         )
         selected = None
         if start_time:

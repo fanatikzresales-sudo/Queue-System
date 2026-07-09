@@ -115,6 +115,8 @@ PRESET_BY_DROP_WINDOW: list[tuple[int, int, str, str, list[int]]] = [
     (5, 2_000, "Drop 5 min before · 2,000 ms", "Late drop — 5 min before queue, tighter refresh", [45, 30, 20]),
     (3, 2_000, "Drop 3 min before · 2,000 ms", "Very late drop — strong precision near go-live", [45, 30, 20]),
     (3, 1_500, "Drop 3 min before · 1,500 ms", "Very late drop — popular for Pokemon-style timing", [30, 45, 20]),
+    (2, 3_000, "Drop 2 min before · 3,000 ms", "Ultra-late drop — 2 min switch, strong refresh", [30, 45, 20]),
+    (2, 2_000, "Drop 2 min before · 2,000 ms", "Ultra-late drop — 2 min switch, high refresh", [30, 45, 20]),
     (2, 1_500, "Drop 2 min before · 1,500 ms", "Ultra-late drop — last-minute switch", [30, 20, 45]),
     (2, 1_000, "Drop 2 min before · 1,000 ms", "Ultra-late drop — maximum precision at queue live", [30, 20]),
 ]
@@ -867,6 +869,7 @@ def find_compatible_custom_starts(
     target_final_delay_ms: int,
     timing_mode: TimingMode | str = TimingMode.INSTANT,
     drop_mode: DropPlanMode | str = DropPlanMode.LAST_MIN,
+    switch_minutes_before: float | None = None,
 ) -> list[CompatibleStartOption]:
     """
     List start windows and starting delays that achieve an exact target final delay.
@@ -880,9 +883,13 @@ def find_compatible_custom_starts(
     tz = get_timezone(tz_key)
     target = _ensure_tz(target, tz)
     switch_candidates = (
-        LAST_MIN_SWITCH_CANDIDATES
-        if drop_mode == DropPlanMode.LAST_MIN
-        else DEFAULT_SWITCH_MINUTES_CANDIDATES
+        [switch_minutes_before]
+        if switch_minutes_before is not None
+        else (
+            LAST_MIN_SWITCH_CANDIDATES
+            if drop_mode == DropPlanMode.LAST_MIN
+            else DEFAULT_SWITCH_MINUTES_CANDIDATES
+        )
     )
     window_labels = {w: lbl for w, lbl in ALL_START_WINDOWS}
     options: list[CompatibleStartOption] = []
@@ -906,6 +913,10 @@ def find_compatible_custom_starts(
             s1, s2 = steps[0], steps[1]
             if s2.delay_ms != target_final_delay_ms:
                 continue
+
+            if switch_minutes_before is not None:
+                if abs(s2.minutes_before - switch_minutes_before) > 0.25:
+                    continue
 
             command_at = drop_command_at(s2.at, s1.delay_ms, timing_mode)
             if command_at < s1.at:

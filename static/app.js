@@ -12,6 +12,8 @@ const queueLiveLabel   = document.getElementById("queue_live_label");
 const presetGridEl     = document.getElementById("preset_grid");
 const lateDropGridEl   = document.getElementById("late_drop_grid");
 const targetFinalDelayEl = document.getElementById("target_final_delay_ms");
+const dropWindowBeforeEl = document.getElementById("drop_window_before");
+const dropWindowFieldEl  = document.getElementById("drop_window_field");
 const dropPlanHintEl   = document.getElementById("drop_plan_hint");
 const dropPlanBtns     = document.querySelectorAll(".drop-plan-btn");
 const compatibleStartsPanel = document.getElementById("compatible_starts_panel");
@@ -111,6 +113,18 @@ function getDropPlanMode() {
   return currentDropPlan;
 }
 
+function getDropWindowBefore() {
+  if (currentDropPlan !== "last_min" || !dropWindowBeforeEl) return null;
+  const val = dropWindowBeforeEl.value;
+  return val ? parseFloat(val) : null;
+}
+
+function updateDropWindowFieldVisibility() {
+  if (dropWindowFieldEl) {
+    dropWindowFieldEl.hidden = currentDropPlan !== "last_min";
+  }
+}
+
 function setDropPlanMode(mode) {
   currentDropPlan = mode === "long_drop" ? "long_drop" : "last_min";
   dropPlanBtns.forEach(btn => {
@@ -119,6 +133,7 @@ function setDropPlanMode(mode) {
   if (dropPlanHintEl) {
     dropPlanHintEl.textContent = DROP_PLAN_HINTS[currentDropPlan];
   }
+  updateDropWindowFieldVisibility();
   populateTargetFinalDelaySelect();
   loadCompatibleStarts();
 }
@@ -560,6 +575,9 @@ function applyPresetToCustom(p) {
   initialDelayEl.value = p.start_delay_ms;
   selectedFinalDelayMs = p.final_delay_ms;
   if (p.drop_mode) setDropPlanMode(p.drop_mode);
+  if (dropWindowBeforeEl && p.switch_minutes_before >= 2 && p.switch_minutes_before <= 5) {
+    dropWindowBeforeEl.value = String(Math.round(p.switch_minutes_before));
+  }
   if (targetFinalDelayEl) {
     populateTargetFinalDelaySelect();
     targetFinalDelayEl.value = String(p.final_delay_ms);
@@ -674,6 +692,7 @@ async function loadCompatibleStarts() {
         timing_mode: getTimingMode(),
         drop_mode: getDropPlanMode(),
         target_final_delay_ms: finalMs,
+        switch_minutes_before: getDropWindowBefore(),
       }),
     });
     const data = await res.json();
@@ -681,7 +700,9 @@ async function loadCompatibleStarts() {
 
     compatibleStartsPanel.hidden = false;
     compatibleStartsHint.textContent =
-      `${data.options.length} start time(s) work with ${formatMs(finalMs)} final delay (${dropPlanLabel(data.drop_mode)}). Tap Use to apply.`;
+      `${data.options.length} start time(s) work with ${formatMs(finalMs)} final delay` +
+      (getDropWindowBefore() ? ` · drop ${getDropWindowBefore()} min before queue` : "") +
+      ` (${dropPlanLabel(data.drop_mode)}). Tap Use to apply.`;
 
     if (!data.options.length) {
       compatibleStartsList.innerHTML =
@@ -699,6 +720,7 @@ async function loadCompatibleStarts() {
           <span>${opt.start_window_label}</span>
           <span>Start ${opt.start_delay_label}</span>
           <span>Drop ${opt.drop_minutes_label}</span>
+          <span>Switch ${opt.switch_minutes_before?.toFixed?.(1) ?? opt.switch_minutes_before} min before</span>
           <span>Final ${opt.final_delay_label}</span>
           <button type="button" data-start="${optStart}" data-delay="${opt.start_delay_ms}">Use</button>
         </li>`;
@@ -897,6 +919,9 @@ async function runOptimize(opts = {}) {
     if (targetFinal) payload.target_final_delay_ms = targetFinal;
     if (opts.switch_minutes_before != null) {
       payload.switch_minutes_before = opts.switch_minutes_before;
+    } else {
+      const dropWindow = getDropWindowBefore();
+      if (dropWindow != null) payload.switch_minutes_before = dropWindow;
     }
 
     const res = await fetch("/api/optimize", {
@@ -927,6 +952,10 @@ timezoneEl.addEventListener("change", () => {
   loadCompatibleStarts();
   resultsPanelEl.hidden = true;
 });
+
+if (dropWindowBeforeEl) {
+  dropWindowBeforeEl.addEventListener("change", () => loadCompatibleStarts());
+}
 
 [startTimeEl, customDateEl, queueTimeEl, initialDelayEl].forEach(el => {
   if (!el) return;
