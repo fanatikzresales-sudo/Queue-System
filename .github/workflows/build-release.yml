@@ -163,6 +163,7 @@ jobs:
           npm run build:js
           npx cap sync ios
           node scripts/patch-ios-plugins.js
+          node scripts/resolve-ios-packages.js
           cd ios/App
           xcodebuild -project App.xcodeproj -scheme App \
             -destination 'generic/platform=iOS Simulator' \
@@ -206,14 +207,26 @@ jobs:
             - **Custom Start Time toggle:** Last-Min Drop vs Long Drop Delay
             - **Last-min presets:** 1,500 / 2,000 / 3,000 ms final delays (2–5 min before queue)
             - **Compatible start times** when you pick a preset or target final delay
-            - More drop delay presets for Instant and Deferred switch modes
+            - **Mobile:** Android APK + iOS notification fixes (native iOS alerts)
 
             ### Download
             | Platform | File |
             |----------|------|
             | **Windows** | `FRQueueOptimizer.exe` — double-click to open |
             | **Mac** | `FRQueueOptimizer-Mac.zip` — unzip, drag to Applications |
-            | **Android** | `FRQueueOptimizer-Android.apk` (when available) |
+            | **Android** | `FRQueueOptimizer-Android.apk` — install on phone or emulator |
+            | **iOS** | Rebuild via TestFlight — see `mobile/IOS-APP-STORE.md` |
+
+            ### Android install
+            1. Download `FRQueueOptimizer-Android.apk`
+            2. Open on your device — allow install from unknown sources if prompted
+            3. Enable notifications → tap **Test alert**
+
+            ### iOS (TestFlight)
+            iOS builds are not distributed as IPA on GitHub. On your Mac:
+            1. Download latest code ZIP from `main`
+            2. In `mobile/`: `npm install` → `npm run cap:ios`
+            3. Open Xcode → bump build → Archive → TestFlight
 
             ### Auto-update
             When you open the app, it checks for updates automatically.

@@ -248,7 +248,8 @@
   }
 
   function scheduleAt(whenMs) {
-    const at = new Date(Math.max(whenMs, Date.now() + 1000));
+    const minLead = isIOS() ? 1000 : 500;
+    const at = new Date(Math.max(whenMs, Date.now() + minLead));
     if (isIOS()) {
       return { at };
     }
@@ -396,10 +397,10 @@
     const alarms = toAlarmPayload(notifications);
     const pa = planAlarm();
 
-    if (isAndroid() && pa && typeof pa.scheduleAlarms === 'function') {
+    if (pa && typeof pa.scheduleAlarms === 'function') {
       try {
         const result = await pa.scheduleAlarms({ alarms });
-        return { method: 'native_alarm', count: result.scheduled || alarms.length };
+        return { method: isIOS() ? 'native_ios' : 'native_alarm', count: result.scheduled || alarms.length };
       } catch (err) {
         console.warn('PlanAlarm.scheduleAlarms failed, trying Capacitor:', err);
       }
@@ -449,11 +450,13 @@
 
   async function showNotificationNow(id, title, body, channelId) {
     const pa = planAlarm();
-    if (isAndroid() && pa && typeof pa.showNow === 'function') {
+    if (pa && typeof pa.showNow === 'function') {
       try {
         await pa.showNow({ id, title, body, channel: channelId || CHANNEL_ALERTS });
         return true;
-      } catch (_) {}
+      } catch (err) {
+        console.warn('PlanAlarm.showNow failed:', err);
+      }
     }
     if (!ln()) return false;
     try {

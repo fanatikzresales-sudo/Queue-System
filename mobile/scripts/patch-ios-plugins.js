@@ -12,7 +12,7 @@ if (!fs.existsSync(configPath)) {
   process.exit(0);
 }
 
-const extraPlugins = ['AppSettingsPlugin'];
+const extraPlugins = ['AppSettingsPlugin', 'PlanAlarmPlugin'];
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const list = Array.isArray(config.packageClassList) ? config.packageClassList.slice() : [];
 

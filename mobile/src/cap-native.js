@@ -4,7 +4,7 @@ import { App } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 const AppSettings = registerPlugin('AppSettings');
-const PlanAlarm = Capacitor.getPlatform() === 'android' ? registerPlugin('PlanAlarm') : null;
+const PlanAlarm = Capacitor.isNativePlatform() ? registerPlugin('PlanAlarm') : null;
 
 window.__DROP_REMINDER_MINUTES = 10;
 window.CapNative = { Capacitor, LocalNotifications, App, SplashScreen, AppSettings, PlanAlarm };
@@ -49,7 +49,7 @@ async function initNativeNotifications() {
   if (Capacitor.getPlatform() === 'ios') {
     try {
       const perm = await LocalNotifications.checkPermissions();
-      if (perm.display === 'prompt') {
+      if (perm.display !== 'granted') {
         await LocalNotifications.requestPermissions();
       }
     } catch (e) {
