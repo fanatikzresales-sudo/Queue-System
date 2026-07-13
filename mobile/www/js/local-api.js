@@ -6,7 +6,7 @@
 
   const S = () => global.QueueScheduler;
   const DT = () => global.luxon.DateTime;
-  const APP_VERSION = '1.3.7';
+  const APP_VERSION = '1.3.8';
 
   function parseTime(value) {
     const parts = String(value || '').trim().split(':');

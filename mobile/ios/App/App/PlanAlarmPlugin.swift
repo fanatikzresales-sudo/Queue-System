@@ -117,9 +117,22 @@ public class PlanAlarmPlugin: CAPPlugin, CAPBridgedPlugin, UNUserNotificationCen
         content.body = String(body.prefix(240))
         content.sound = .default
 
+        let fireDate = Date(timeIntervalSince1970: atMs / 1000.0)
         let nowMs = Date().timeIntervalSince1970 * 1000
         let delaySec = max(0.5, (atMs - nowMs) / 1000.0)
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: delaySec, repeats: false)
+
+        // Calendar triggers are more reliable than long time-interval triggers (e.g. days before queue).
+        let trigger: UNNotificationTrigger
+        if delaySec > 3600 {
+            let components = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute, .second],
+                from: fireDate
+            )
+            trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        } else {
+            trigger = UNTimeIntervalNotificationTrigger(timeInterval: delaySec, repeats: false)
+        }
+
         let request = UNNotificationRequest(identifier: String(id), content: content, trigger: trigger)
 
         UNUserNotificationCenter.current().add(request) { error in

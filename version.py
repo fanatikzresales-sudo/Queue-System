@@ -1,4 +1,4 @@
 """Single source of truth for app version."""
-APP_VERSION = "1.3.7"
+APP_VERSION = "1.3.8"
 GITHUB_REPO = "fanatikzresales-sudo/Queue-System"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
