@@ -154,12 +154,13 @@
   const jsPlanTimers = {};
 
   function patchPlanManager() {
-    if (!global.PM || global.PM.__mobilePatched) return;
+    const pm = global.PM;
+    if (!pm || typeof pm.activate !== 'function' || pm.__mobilePatched) return;
 
-    const origActivate = global.PM.activate.bind(global.PM);
-    const origCancel = global.PM.cancel.bind(global.PM);
+    const origActivate = pm.activate.bind(pm);
+    const origCancel = pm.cancel.bind(pm);
 
-    global.PM.activate = function (name, plan) {
+    pm.activate = function (name, plan) {
       const id = origActivate(name, plan);
 
       if (global.MobileNotifications && global.MobileNotifications.isNative()) {
@@ -210,7 +211,7 @@
       return id;
     };
 
-    global.PM.cancel = function (id, silent) {
+    pm.cancel = function (id, silent) {
       if (jsPlanTimers[id]) {
         jsPlanTimers[id].forEach(t => clearTimeout(t));
         delete jsPlanTimers[id];
@@ -221,7 +222,7 @@
       return origCancel(id, silent);
     };
 
-    global.PM.__mobilePatched = true;
+    pm.__mobilePatched = true;
   }
 
   global.addEventListener('DOMContentLoaded', () => {
@@ -237,7 +238,7 @@
     const tryPatch = setInterval(() => {
       patchPlanManager();
       if (global.PM && global.PM.__mobilePatched) clearInterval(tryPatch);
-    }, 200);
-    setTimeout(() => clearInterval(tryPatch), 15000);
+    }, 100);
+    setTimeout(() => clearInterval(tryPatch), 5000);
   });
 })(typeof window !== 'undefined' ? window : global);

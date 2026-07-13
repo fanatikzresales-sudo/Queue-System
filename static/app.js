@@ -206,6 +206,11 @@ function defaultName() { return `Bot ${_nameCounter++}`; }
 // Uses the pywebview Python bridge when running as the desktop app;
 // falls back to the browser Notification API when opened in a browser.
 function fireOSNotification(title, body) {
+  // Capacitor mobile (iOS / Android) — native local notifications
+  if (window.MobileNotifications && window.MobileNotifications.isNative && window.MobileNotifications.isNative()) {
+    window.MobileNotifications.notifyNow(title, body, false);
+    return;
+  }
   // Desktop app (pywebview) — real OS toast + brings window to front
   if (window.pywebview && window.pywebview.api && window.pywebview.api.notify) {
     try {
@@ -478,6 +483,11 @@ const PM = (() => {
 
   return { activate, cancel, cancelAll };
 })();
+
+// Exposed for mobile-bridge.js (Capacitor) — const PM is not on window by default.
+if (typeof window !== "undefined") {
+  window.PM = PM;
+}
 
 cancelAllBtn.addEventListener("click", () => PM.cancelAll());
 
