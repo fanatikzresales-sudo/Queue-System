@@ -183,6 +183,7 @@
               ? `Pending on device: ${result.pending}\n\n`
               : '';
             showNotifError(
+              `Alerts are set! Check your notification — we'll remind you ${global.MobileNotifications.REMINDER_MINUTES} min before start and drop.\n\n` +
               `Scheduled ${result.scheduled} alerts (${result.method || 'native'}).\n` +
               pendingLine +
               monitorLine +

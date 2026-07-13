@@ -476,6 +476,24 @@
     }
   }
 
+  async function notifyAlertsActivated(name, plan) {
+    if (!isNative()) return false;
+    const p = normalizePlanTimes(plan);
+    const title = `${name} — Alerts set`;
+    const body =
+      `We'll send you a reminder ${REMINDER_MINUTES} min before your task starts` +
+      (p.start_time_display ? ` (${p.start_time_display})` : '') +
+      `, and again before you drop` +
+      (p.drop_time_display ? ` at ${p.drop_time_display}` : '') +
+      '.';
+    return showNotificationNow(
+      Math.floor(Math.random() * 800000) + 200000,
+      title,
+      body,
+      CHANNEL_ALERTS
+    );
+  }
+
   async function schedulePlanNotifications(planId, name, plan) {
     if (!isNative() || !ln()) return { ok: false, reason: 'not_native' };
 
@@ -499,12 +517,7 @@
     const notifications = buildPlanNotifications(planId, name, plan, now);
     const futureNotifications = notifications.filter(n => n.extra?.type !== 'confirmed');
 
-    const immediateOk = await showNotificationNow(
-      notifId(planId, 0),
-      `${name} — Plan active`,
-      `Start at ${plan.start_time_display}. Drop reminder ${REMINDER_MINUTES} min before ${plan.drop_time_display}.`,
-      CHANNEL_ALERTS
-    );
+    const immediateOk = await notifyAlertsActivated(name, plan);
 
     let scheduleResult = { method: 'none', count: 0, errors: [] };
     try {
@@ -652,6 +665,7 @@
     requestPermissionDialog,
     ensurePermissions,
     ensurePermissionsWithPrompt,
+    notifyAlertsActivated,
     schedulePlanNotifications,
     cancelPlanNotifications,
     sendTestNotification,

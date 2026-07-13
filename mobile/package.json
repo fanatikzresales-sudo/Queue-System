@@ -1,6 +1,6 @@
 {
   "name": "fr-queue-optimizer-mobile",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "description": "FR Queue Optimizer — Android & iOS companion app",
   "private": true,
   "scripts": {
