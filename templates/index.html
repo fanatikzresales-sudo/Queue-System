@@ -4,173 +4,226 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FR Queue Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ app_version }}">
 </head>
-<body>
-  <div class="page">
-    <!-- Update banner — text is set by JS ONLY when an update is ready -->
-    <div id="update-banner" class="update-banner" hidden>
-      <span class="ub-text"></span>
-      <a id="ub-link" href="#" class="ub-btn"></a>
-      <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
-    </div>
-
-    <header>
-      <div class="badge">Walmart · Pokemon Queue</div>
-      <h1>FR Queue Optimizer</h1>
-      <p class="subtitle">
-        Pick how early you start. Get exactly <strong>2 delays</strong>: one to set at the start,
-        one to drop before queue live so your refresh hits <strong>8:00 PM</strong> on the dot.
-        <a class="live-link" href="/demo-live">Watch live demo →</a>
-      </p>
-    </header>
-
-    <!-- Timezone + demo controls -->
-    <div class="top-bar panel">
-      <label class="field inline">
-        <span>Timezone</span>
-        <select id="timezone">
-          {% for key, label in timezones.items() %}
-          <option value="{{ key }}" {% if key == default_tz %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <div class="top-bar-right">
-        <label class="checkbox">
-          <input type="checkbox" id="demo_mode">
-          <span>Demo mode</span>
-        </label>
-        <a href="/demo-live" class="btn-demo-live" id="demo_live_link">Launch Live Demo →</a>
-      </div>
-    </div>
-
-    <!-- Active Plans panel — shown dynamically when plans are running -->
-    <section class="panel active-plans-section" id="active-plans-section" hidden>
-      <div class="active-plans-header">
+<body class="desktop-shell">
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="App navigation">
+      <div class="sidebar-brand">
+        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Fanatikz Resales" class="sidebar-logo" width="44" height="44">
         <div>
-          <h2>Active Plans <span id="active-plans-count" class="ap-count">0</span></h2>
-          <p class="hint">Notifications are scheduled. You'll be alerted before each drop.</p>
+          <div class="sidebar-brand-name">Fanatikz Resales</div>
+          <div class="sidebar-brand-sub">Queue tools</div>
         </div>
-        <button class="ap-cancel-all-btn" id="cancel-all-btn" type="button">Cancel All</button>
       </div>
-      <div id="active-plans-list" class="active-plans-list"></div>
-    </section>
 
-    <!-- Preset plan cards -->
-    <section class="preset-section">
-      <div class="preset-header">
-        <div>
-          <h2>Common Start Windows</h2>
-          <p class="hint" id="queue_live_label">Loading schedules…</p>
-          <p class="hint timing-mode-hint" id="timing_mode_hint"></p>
-          <p class="hint preset-mode-label">Long drop delays <small>(up to ~10 min before queue · 1,000–5,000 ms final)</small></p>
-        </div>
-        <div class="timing-mode-toggle" role="group" aria-label="Bot delay switch timing">
-          <button type="button" class="timing-mode-btn active" data-mode="instant">Instant Switch</button>
-          <button type="button" class="timing-mode-btn" data-mode="deferred">Deferred Switch</button>
-        </div>
-      </div>
-      <div id="preset_grid" class="preset-grid">
-        <div class="preset-loading">Loading plans…</div>
-      </div>
-      <h3 class="preset-subheading">Last-Min Drops <small>(2–5 min before queue · 800–3,000 ms final)</small></h3>
-      <div id="late_drop_grid" class="preset-grid preset-grid-late">
-        <div class="preset-loading">Loading last-min plans…</div>
-      </div>
-    </section>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link active" href="/">
+          <span class="sidebar-ico" aria-hidden="true">◎</span>
+          FR Queue Optimizer
+        </a>
+        <a class="sidebar-link" href="/demo-live" id="demo_live_link">
+          <span class="sidebar-ico" aria-hidden="true">▶</span>
+          Live Demo
+        </a>
+      </nav>
 
-    <!-- Custom optimizer -->
-    <section class="panel custom-section">
-      <div class="custom-section-header">
-        <div>
-          <h2>Custom Start Time</h2>
-          <p class="hint">Pick last-min or long drop mode, then set your date, start time, and delay.</p>
-        </div>
-        <div class="drop-plan-toggle" role="group" aria-label="Drop plan type">
-          <button type="button" class="drop-plan-btn active" data-drop-plan="last_min">Last-Min Drop</button>
-          <button type="button" class="drop-plan-btn" data-drop-plan="long_drop">Long Drop Delay</button>
-        </div>
-      </div>
-      <p class="hint drop-plan-hint" id="drop_plan_hint">Last-min: drop 2–5 min before queue with tight final delays (1,500–3,000 ms).</p>
-      <div class="custom-row">
-        <label class="field">
-          <span>Target Final Delay</span>
-          <select id="target_final_delay_ms"></select>
-        </label>
-        <label class="field" id="drop_window_field">
-          <span>Drop Window <small>(last-min only)</small></span>
-          <select id="drop_window_before">
-            <option value="">Any (2–5 min before queue)</option>
-            <option value="2" selected>2 min before queue</option>
-            <option value="3">3 min before queue</option>
-            <option value="4">4 min before queue</option>
-            <option value="5">5 min before queue</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Date <small>(defaults to next Wednesday)</small></span>
-          <div class="date-row">
-            <input type="date" id="custom_date">
-            <button type="button" id="next_wed_btn" class="btn-next-wed">Next Wednesday</button>
+      <div class="sidebar-footer">
+        <div class="sidebar-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <div>
+            <div class="status-title">System Status</div>
+            <div class="status-sub">Ready · v{{ app_version }}</div>
           </div>
-        </label>
-        <label class="field">
-          <span>Queue Time <small id="queue_time_hint">(in your selected timezone)</small></span>
-          <input type="time" id="queue_time_override" step="1">
-        </label>
-        <label class="field">
-          <span>Start Time <small id="start_time_hint">(in your selected timezone)</small></span>
-          <input type="time" id="start_time" step="1">
-        </label>
-        <label class="field">
-          <span>Starting Delay</span>
-          <div class="delay-row">
-            <input type="number" id="initial_delay_ms" value="60000" min="250" step="250">
-            <select id="delay_preset">
-              <option value="">Presets</option>
-              {% for d in starter_delays %}
-              <option value="{{ d }}">{{ d // 1000 }}s ({{ d }} ms)</option>
+        </div>
+        <p class="sidebar-copy">© Fanatikz Resales</p>
+      </div>
+    </aside>
+
+    <div class="main-stage">
+      <div id="update-banner" class="update-banner" hidden>
+        <span class="ub-text"></span>
+        <a id="ub-link" href="#" class="ub-btn"></a>
+        <button class="ub-dismiss" id="ub-dismiss" type="button">✕</button>
+      </div>
+
+      <header class="stage-header">
+        <div>
+          <div class="badge">Walmart · Pokemon Queue</div>
+          <h1>FR Queue Optimizer</h1>
+          <p class="subtitle">
+            Find the optimal time to start and when to drop for the best possible final delay —
+            exactly <strong>2 delays</strong> so your refresh hits <strong>8:00 PM</strong> on the dot.
+          </p>
+        </div>
+        <div class="stage-header-actions">
+          <label class="field inline timezone-field">
+            <span>Timezone</span>
+            <select id="timezone">
+              {% for key, label in timezones.items() %}
+              <option value="{{ key }}" {% if key == default_tz %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="demo_mode">
+            <span>Demo mode</span>
+          </label>
+        </div>
+      </header>
+
+      <section class="panel active-plans-section" id="active-plans-section" hidden>
+        <div class="active-plans-header">
+          <div>
+            <h2>Active Plans <span id="active-plans-count" class="ap-count">0</span></h2>
+            <p class="hint">Notifications are scheduled. You'll be alerted before each drop.</p>
           </div>
-        </label>
-        <button type="button" id="optimize_btn" class="primary">Queue Optimize</button>
-      </div>
-      <div id="compatible_starts_panel" class="compatible-starts-panel" hidden>
-        <h3>Compatible start times for selected final delay</h3>
-        <p class="hint" id="compatible_starts_hint">Select a preset or pick a target final delay above.</p>
-        <ul id="compatible_starts_list" class="compatible-starts-list"></ul>
-      </div>
-    </section>
+          <button class="ap-cancel-all-btn" id="cancel-all-btn" type="button">Cancel All</button>
+        </div>
+        <div id="active-plans-list" class="active-plans-list"></div>
+      </section>
 
-    <!-- Custom result -->
-    <section class="panel results" id="results_panel" hidden>
-      <div class="results-header">
-        <h2>Your 2-Step Schedule</h2>
-        <div id="verification" class="verification"></div>
+      <section class="preset-section panel">
+        <div class="preset-header">
+          <div>
+            <h2>Common Start Windows</h2>
+            <p class="hint" id="queue_live_label">Loading schedules…</p>
+            <p class="hint timing-mode-hint" id="timing_mode_hint"></p>
+            <p class="hint preset-mode-label">Long drop delays <small>(up to ~10 min before queue · 1,000–5,000 ms final)</small></p>
+          </div>
+          <div class="timing-mode-toggle" role="group" aria-label="Bot delay switch timing">
+            <button type="button" class="timing-mode-btn active" data-mode="instant">Instant Switch</button>
+            <button type="button" class="timing-mode-btn" data-mode="deferred">Deferred Switch</button>
+          </div>
+        </div>
+        <div id="preset_grid" class="preset-grid">
+          <div class="preset-loading">Loading plans…</div>
+        </div>
+        <h3 class="preset-subheading">Last-Min Drops <small>(2–5 min before queue · 800–3,000 ms final)</small></h3>
+        <div id="late_drop_grid" class="preset-grid preset-grid-late">
+          <div class="preset-loading">Loading last-min plans…</div>
+        </div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="panel custom-section workspace-panel">
+          <div class="panel-kicker">Plan builder</div>
+          <h2>Custom Start Time</h2>
+          <p class="hint">Pick last-min or long drop mode, then set your date, start time, and delay.</p>
+
+          <div class="drop-strategy" role="group" aria-label="Drop plan type">
+            <button type="button" class="drop-plan-btn drop-strategy-card active" data-drop-plan="last_min">
+              <span class="drop-strategy-ico" aria-hidden="true">◎</span>
+              <span class="drop-strategy-title">Last-Min Drop</span>
+              <span class="drop-strategy-desc">Drop as late as possible for your target delay.</span>
+            </button>
+            <button type="button" class="drop-plan-btn drop-strategy-card" data-drop-plan="long_drop">
+              <span class="drop-strategy-ico" aria-hidden="true">◷</span>
+              <span class="drop-strategy-title">Long Drop Delay</span>
+              <span class="drop-strategy-desc">Drop earlier for a longer built-in delay buffer.</span>
+            </button>
+          </div>
+          <p class="hint drop-plan-hint" id="drop_plan_hint">Last-min: drop 2–5 min before queue with tight final delays (1,500–3,000 ms).</p>
+
+          <div class="custom-row">
+            <label class="field">
+              <span>Target Final Delay</span>
+              <select id="target_final_delay_ms"></select>
+              <small class="field-help">Select the final delay you want right before queue live.</small>
+            </label>
+            <label class="field" id="drop_window_field">
+              <span>Drop Window <small>(last-min only)</small></span>
+              <select id="drop_window_before">
+                <option value="">Any (2–5 min before queue)</option>
+                <option value="2" selected>2 min before queue</option>
+                <option value="3">3 min before queue</option>
+                <option value="4">4 min before queue</option>
+                <option value="5">5 min before queue</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Date <small>(defaults to next Wednesday)</small></span>
+              <div class="date-row">
+                <input type="date" id="custom_date">
+                <button type="button" id="next_wed_btn" class="btn-next-wed">Next Wednesday</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>Queue Time <small id="queue_time_hint">(in your selected timezone)</small></span>
+              <input type="time" id="queue_time_override" step="1">
+            </label>
+            <label class="field">
+              <span>Start Time <small id="start_time_hint">(in your selected timezone)</small></span>
+              <input type="time" id="start_time" step="1">
+            </label>
+            <label class="field">
+              <span>Starting Delay</span>
+              <div class="delay-row">
+                <input type="number" id="initial_delay_ms" value="60000" min="250" step="250">
+                <select id="delay_preset">
+                  <option value="">Presets</option>
+                  {% for d in starter_delays %}
+                  <option value="{{ d }}">{{ d // 1000 }}s ({{ d }} ms)</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </label>
+            <button type="button" id="optimize_btn" class="primary optimize-cta">Queue Optimize</button>
+          </div>
+
+          <div id="compatible_starts_panel" class="compatible-starts-panel" hidden>
+            <div class="compatible-starts-head">
+              <h3>Compatible Start Times</h3>
+              <span class="compatible-count" id="compatible_starts_count"></span>
+            </div>
+            <p class="hint" id="compatible_starts_hint">Select a preset or pick a target final delay above.</p>
+            <ul id="compatible_starts_list" class="compatible-starts-list"></ul>
+            <p class="compatible-footnote">Times update from your timezone, queue date, and selected final delay.</p>
+          </div>
+        </section>
+
+        <section class="panel results workspace-panel" id="results_panel">
+          <div class="results-header">
+            <div>
+              <div class="panel-kicker">Optimization results</div>
+              <h2>Your 2-Step Schedule</h2>
+            </div>
+            <div id="verification" class="verification">Run Queue Optimize to build your plan</div>
+          </div>
+
+          <div class="summary" id="summary"></div>
+          <div id="two_step_cards" class="two-step-cards">
+            <div class="results-empty">
+              <div class="results-empty-ico" aria-hidden="true">⏱</div>
+              <p>Your start and drop times will appear here after you optimize a custom plan — or tap <strong>Use This Plan</strong> on a preset.</p>
+            </div>
+          </div>
+
+          <div class="results-details">
+            <h3>Quick Copy</h3>
+            <div class="table-wrap">
+              <table id="drop_table">
+                <thead>
+                  <tr>
+                    <th>Step</th>
+                    <th>At What Time</th>
+                    <th>Before Queue</th>
+                    <th>Set Delay To</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <h3>Final Refreshes (last 15)</h3>
+            <ul id="final_refreshes" class="refresh-list"></ul>
+          </div>
+        </section>
       </div>
-
-      <div class="summary" id="summary"></div>
-      <div id="two_step_cards" class="two-step-cards"></div>
-
-      <h3>Quick Copy</h3>
-      <div class="table-wrap">
-        <table id="drop_table">
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>At What Time</th>
-              <th>Before Queue</th>
-              <th>Set Delay To</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <h3>Final Refreshes (last 15)</h3>
-      <ul id="final_refreshes" class="refresh-list"></ul>
-    </section>
+    </div>
   </div>
 
   <script src="{{ url_for('static', filename='app.js') }}?v={{ app_version }}"></script>

@@ -160,11 +160,30 @@ function getTargetFinalDelayPayload() {
   return val === "auto" ? null : parseInt(val, 10);
 }
 
+function resetResultsPanel(message) {
+  if (!resultsPanelEl) return;
+  resultsPanelEl.hidden = false;
+  if (verificationEl) {
+    verificationEl.className = "verification";
+    verificationEl.textContent = message || "Run Queue Optimize to build your plan";
+  }
+  if (summaryEl) summaryEl.innerHTML = "";
+  if (twoStepCardsEl) {
+    twoStepCardsEl.innerHTML = `
+      <div class="results-empty">
+        <div class="results-empty-ico" aria-hidden="true">⏱</div>
+        <p>Your start and drop times will appear here after you optimize a custom plan — or tap <strong>Use This Plan</strong> on a preset.</p>
+      </div>`;
+  }
+  if (dropTableBody) dropTableBody.innerHTML = "";
+  if (finalRefreshesEl) finalRefreshesEl.innerHTML = "";
+}
+
 dropPlanBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.dropPlan === currentDropPlan) return;
     setDropPlanMode(btn.dataset.dropPlan);
-    resultsPanelEl.hidden = true;
+    resetResultsPanel();
   });
 });
 
@@ -182,7 +201,7 @@ timingModeBtns.forEach(btn => {
     setTimingMode(btn.dataset.mode);
     loadPresets();
     loadCompatibleStarts();
-    resultsPanelEl.hidden = true;
+    resetResultsPanel();
   });
 });
 
@@ -709,6 +728,12 @@ async function loadCompatibleStarts() {
     if (!res.ok) throw new Error(data.error || "Failed");
 
     compatibleStartsPanel.hidden = false;
+    const countEl = document.getElementById("compatible_starts_count");
+    if (countEl) {
+      countEl.textContent = data.options.length
+        ? `${data.options.length} Found`
+        : "0 Found";
+    }
     compatibleStartsHint.textContent =
       `${data.options.length} start time(s) work with ${formatMs(finalMs)} final delay` +
       (getDropWindowBefore() ? ` · drop ${getDropWindowBefore()} min before queue` : "") +
@@ -727,12 +752,9 @@ async function loadCompatibleStarts() {
       return `
         <li class="${isSelected ? "selected" : ""}">
           <strong>${opt.start_time_display}</strong>
-          <span>${opt.start_window_label}</span>
-          <span>Start ${opt.start_delay_label}</span>
-          <span>Drop ${opt.drop_minutes_label}</span>
-          <span>Switch ${opt.switch_minutes_before?.toFixed?.(1) ?? opt.switch_minutes_before} min before</span>
-          <span>Final ${opt.final_delay_label}</span>
+          <span class="cs-final">Predicted Final Delay: ${opt.final_delay_label}</span>
           <button type="button" data-start="${optStart}" data-delay="${opt.start_delay_ms}">Use</button>
+          <span class="cs-meta">${opt.start_window_label} · Start ${opt.start_delay_label} · Drop ${opt.drop_minutes_label} · Switch ${opt.switch_minutes_before?.toFixed?.(1) ?? opt.switch_minutes_before} min before</span>
         </li>`;
     }).join("");
 
@@ -803,18 +825,24 @@ function showError(message) {
   verificationEl.className = "verification bad";
   verificationEl.textContent = message;
   summaryEl.innerHTML = "";
-  if (twoStepCardsEl) twoStepCardsEl.innerHTML = "";
+  if (twoStepCardsEl) {
+    twoStepCardsEl.innerHTML = `
+      <div class="results-empty">
+        <div class="results-empty-ico" aria-hidden="true">!</div>
+        <p>${message}</p>
+      </div>`;
+  }
   dropTableBody.innerHTML = "";
   finalRefreshesEl.innerHTML = "";
 }
 
 function renderResults(data) {
   resultsPanelEl.hidden = false;
-  resultsPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  resultsPanelEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
   verificationEl.className = data.hits_target_exactly ? "verification ok" : "verification bad";
   verificationEl.textContent = data.hits_target_exactly
-    ? "Verified — refresh hits queue go-live exactly"
+    ? "Based on Live Data · Verified hit"
     : "Warning — last refresh may not align exactly";
 
   summaryEl.innerHTML = `
@@ -830,31 +858,54 @@ function renderResults(data) {
   const s1 = data.drop_schedule[0];
   const s2 = data.drop_schedule[1];
   const isDeferred = data.timing_mode === "deferred";
+  const dropModeLabel = dropPlanLabel(data.drop_mode || getDropPlanMode());
+  const finalLabel = s2 ? s2.delay_label : (data.final_delay_ms ? formatMs(data.final_delay_ms) : "Auto");
 
   if (s1 && s2) {
     twoStepCardsEl.innerHTML = `
       <div class="step-card start-card">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <strong>Start your task</strong>
-          <p class="sc-time">START NOW</p>
-          <p>Set delay to <span class="highlight">${s1.delay_label}</span></p>
-          <small>${s1.refreshes_until_next} refreshes until the drop</small>
+        <div class="step-card-top">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-label">Step 1</div>
+            <div class="step-title">Start your task</div>
+          </div>
         </div>
+        <div class="sc-hero-time">${s1.at}</div>
+        <div class="step-stats">
+          <div class="step-stat"><span>Start delay</span><strong>${s1.delay_label}</strong></div>
+          <div class="step-stat"><span>Refreshes until drop</span><strong>${s1.refreshes_until_next}</strong></div>
+          <div class="step-stat"><span>Timing mode</span><strong>${timingModeLabel(data.timing_mode || "instant")}</strong></div>
+        </div>
+        <p class="step-note">Set delay to <strong>${s1.delay_label}</strong> at this time and stay on that delay until Step 2.</p>
       </div>
       <div class="step-card drop-card" id="custom-drop-card">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <strong>Drop delay once</strong>
-          <p class="sc-time">${s2.at} &nbsp;·&nbsp; ${s2.minutes_before} before queue</p>
-          <p>Change delay to <span class="highlight">${s2.delay_label}</span></p>
-          ${isDeferred && s2.effective_switch_at
-            ? `<small class="pc-effective-switch">Final delay active at ${s2.effective_switch_at}</small>`
-            : ""}
-          <small>${s2.refreshes_until_next} refreshes → queue live</small>
-          <div class="custom-alert-area" id="custom-alert-area">
-            <button class="custom-alert-btn" id="custom-alert-btn" type="button">Use This Custom Plan</button>
+        <div class="step-card-top">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-label">Step 2</div>
+            <div class="step-title">Drop delay once</div>
           </div>
+        </div>
+        <div class="sc-hero-time">${s2.at}</div>
+        <div class="step-stats">
+          <div class="step-stat"><span>Final delay</span><strong>${finalLabel}</strong></div>
+          <div class="step-stat"><span>Drop strategy</span><strong>${dropModeLabel}</strong></div>
+          <div class="step-stat"><span>Before queue</span><strong>${s2.minutes_before}</strong></div>
+          <div class="step-stat"><span>Refreshes → live</span><strong>${s2.refreshes_until_next}</strong></div>
+          ${isDeferred && s2.effective_switch_at
+            ? `<div class="step-stat"><span>Final delay active</span><strong>${s2.effective_switch_at}</strong></div>`
+            : ""}
+        </div>
+        <p class="step-note">Change delay to <strong>${finalLabel}</strong> at this time so the next refresh hits queue live.</p>
+      </div>
+      <div class="live-alerts-bar">
+        <div class="live-alerts-copy">
+          <strong>Live Alerts</strong>
+          Get notified when it’s time to start and when to drop.
+        </div>
+        <div class="custom-alert-area" id="custom-alert-area">
+          <button class="custom-alert-btn" id="custom-alert-btn" type="button">Send Live Alerts</button>
         </div>
       </div>
     `;
@@ -866,7 +917,7 @@ function renderResults(data) {
     alertBtn.addEventListener("click", () => {
       if (alertStep === 0) {
         alertStep = 1;
-        alertBtn.textContent = "Send Live Alerts";
+        alertBtn.textContent = "Confirm & Set Alerts";
         alertBtn.classList.add("custom-alert-btn-ready");
       } else {
         const customPlan = {
@@ -960,7 +1011,7 @@ timezoneEl.addEventListener("change", () => {
   syncCustomTimesToTimezone();
   loadPresets();
   loadCompatibleStarts();
-  resultsPanelEl.hidden = true;
+  resetResultsPanel();
 });
 
 if (dropWindowBeforeEl) {
